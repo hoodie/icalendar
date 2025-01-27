@@ -3,7 +3,7 @@ use nom::{
     bytes::complete::{is_not, tag, take_till1},
     character::complete::space0,
     combinator::{eof, opt},
-    error::{convert_error, ContextError, ParseError, VerboseError},
+    error::{ContextError, ParseError},
     multi::many0,
     sequence::{delimited, preceded, separated_pair, tuple},
     Finish, IResult, Parser,
@@ -11,6 +11,7 @@ use nom::{
 
 #[cfg(test)]
 use nom::error::ErrorKind;
+use nom_language::error::{convert_error, VerboseError};
 
 use super::{parsed_string::ParseString, utils::valid_key_sequence_cow};
 
@@ -130,7 +131,7 @@ fn remove_empty_string_parsed(input: Option<ParseString<'_>>) -> Option<ParseStr
 fn parameter<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, Parameter<'a>, E> {
-    alt((pair_parameter, base_parameter))(input)
+    alt((pair_parameter, base_parameter)).parse(input)
 }
 
 fn pair_parameter<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
@@ -215,5 +216,5 @@ pub fn parse_parameter_list() {
 pub fn parameters<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, Vec<Parameter<'a>>, E> {
-    many0(parameter)(input)
+    many0(parameter).parse(input)
 }

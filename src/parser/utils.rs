@@ -45,16 +45,22 @@ pub fn valid_key_sequence_cow<'a, E: ParseError<&'a str> + ContextError<&'a str>
     .parse(input)
 }
 
-pub fn line<'a, O, E: ParseError<&'a str>, F: Parser<&'a str, O, E>>(
+pub fn line<'a, O, E: ParseError<&'a str>, F: Parser<&'a str>>(
     prefix: &'a str,
     f: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E> {
+) -> impl Parser<&'a str, Output = O, Error = E>
+where
+    F: Parser<&'a str, Output = O, Error = E>,
+{
     line_separated(complete(preceded(tag_no_case(prefix), f)))
 }
 
-pub fn line_separated<'a, O, E: ParseError<&'a str>, F: Parser<&'a str, O, E>>(
+pub fn line_separated<'a, O, E: ParseError<&'a str>, F: Parser<&'a str>>(
     f: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E> {
+) -> impl Parser<&'a str, Output = O, Error = E>
+where
+    F: Parser<&'a str, Output = O, Error = E>,
+{
     delimited(many0(line_ending), f, many0(line_ending))
 }
 

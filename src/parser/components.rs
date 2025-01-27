@@ -5,13 +5,14 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     combinator::{all_consuming, complete, cut},
-    error::{context, convert_error, ContextError, ParseError, VerboseError},
+    error::{context, ContextError, ParseError},
     multi::{many0, many_till},
     Finish, IResult, Parser,
 };
 
 #[cfg(test)]
 use nom::error::ErrorKind;
+use nom_language::error::{convert_error, VerboseError};
 use uuid::Uuid;
 
 #[cfg(test)]
@@ -247,7 +248,7 @@ pub fn read_component(input: &str) -> Result<Component<'_>, String> {
 pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, Component<'a>, E> {
-    let (input, name) = line("BEGIN:", valid_key_sequence_cow)(input)?;
+    let (input, name) = line("BEGIN:", valid_key_sequence_cow).parse(input)?;
 
     let (input, (properties, components)) = many_till(
         cut(context(
@@ -272,7 +273,7 @@ pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     })
     .parse(input)?;
 
-    let (input, _) = many0(tag("\n"))(input)?;
+    let (input, _) = many0(tag("\n")).parse(input)?;
 
     Ok((
         input,
@@ -503,7 +504,8 @@ END:VEVENT
 
 #[test]
 fn test_faulty_component() {
-    use nom::error::{ErrorKind::*, VerboseErrorKind::*};
+    use nom::error::ErrorKind::*;
+    use nom_language::error::VerboseErrorKind::*;
     pretty_assertions::assert_eq!(
         component::<VerboseError<&str>>("BEGIN:FOO\nEND:F0O"),
         Err(nom::Err::Failure(VerboseError {
@@ -515,5 +517,5 @@ fn test_faulty_component() {
 pub fn components<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     input: &'a str,
 ) -> IResult<&'a str, Vec<Component<'a>>, E> {
-    complete(many0(all_consuming(component)))(input)
+    complete(many0(all_consuming(component))).parse(input)
 }
