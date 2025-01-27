@@ -91,10 +91,10 @@ impl fmt::Display for Property<'_> {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Property<'a> {
+impl<'i> TryFrom<&'i str> for Property<'i> {
     type Error = String;
 
-    fn try_from(input: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(input: &'i str) -> Result<Self, Self::Error> {
         property(input)
             .finish()
             .map(|(_, x)| x)
@@ -368,9 +368,10 @@ fn determin_value_type(name: &ParseString, params: &[Parameter]) -> Option<Value
         .or_else(|| ValueType::by_name(name.as_str()))
 }
 
-pub fn property<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Property<'a>, E> {
+pub fn property<'i, E>(input: &'i str) -> IResult<&'i str, Property<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     context(
         "property",
         cut(tuple((

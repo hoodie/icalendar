@@ -115,10 +115,10 @@ impl<'a> LikeComponent<'a> for Component<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Component<'a> {
+impl<'i> TryFrom<&'i str> for Component<'i> {
     type Error = String;
 
-    fn try_from(input: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(input: &'i str) -> Result<Self, Self::Error> {
         component(input)
             .finish()
             .map(|(_, x)| x)
@@ -245,9 +245,10 @@ pub fn read_component(input: &str) -> Result<Component<'_>, String> {
         .map_err(|e: VerboseError<&str>| format!("error: {}", convert_error(input, e.clone())))
 }
 
-pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Component<'a>, E> {
+pub fn component<'i, E>(input: &'i str) -> IResult<&'i str, Component<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     let (input, name) = line("BEGIN:", valid_key_sequence_cow).parse(input)?;
 
     let (input, (properties, components)) = many_till(
@@ -286,9 +287,10 @@ pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 }
 
 #[cfg(test)]
-pub fn inner_component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, InnerComponent, E> {
+pub fn inner_component<'i, E>(input: &'i str) -> IResult<&'i str, InnerComponent, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     match component::<(_, _)>(input) {
         Ok(result) => Ok((result.0, InnerComponent::from(result.1))),
         Err(_e) => todo!(),
@@ -514,8 +516,9 @@ fn test_faulty_component() {
     );
 }
 
-pub fn components<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Vec<Component<'a>>, E> {
+pub fn components<'i, E>(input: &'i str) -> IResult<&'i str, Vec<Component<'i>>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     complete(many0(all_consuming(component))).parse(input)
 }
