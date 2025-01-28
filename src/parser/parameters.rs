@@ -3,7 +3,7 @@ use nom::{
     bytes::complete::{is_not, tag, take_till1},
     character::complete::space0,
     combinator::{eof, opt},
-    error::{convert_error, ContextError, ParseError, VerboseError},
+    error::{ContextError, ParseError},
     multi::many0,
     sequence::{delimited, preceded, separated_pair, tuple},
     Finish, IResult, Parser,
@@ -11,6 +11,7 @@ use nom::{
 
 #[cfg(test)]
 use nom::error::ErrorKind;
+use nom_language::error::{convert_error, VerboseError};
 
 use super::{parsed_string::ParseString, utils::valid_key_sequence_cow};
 
@@ -31,10 +32,10 @@ impl<'a> Parameter<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Parameter<'a> {
+impl<'i> TryFrom<&'i str> for Parameter<'i> {
     type Error = String;
 
-    fn try_from(input: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(input: &'i str) -> Result<Self, Self::Error> {
         parameter(input)
             .finish()
             .map(|(_, x)| x)
@@ -127,15 +128,17 @@ fn remove_empty_string_parsed(input: Option<ParseString<'_>>) -> Option<ParseStr
     None
 }
 
-fn parameter<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Parameter<'a>, E> {
-    alt((pair_parameter, base_parameter))(input)
+fn parameter<'i, E>(input: &'i str) -> IResult<&'i str, Parameter<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
+    alt((pair_parameter, base_parameter)).parse(input)
 }
 
-fn pair_parameter<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Parameter<'a>, E> {
+fn pair_parameter<'i, E>(input: &'i str) -> IResult<&'i str, Parameter<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     preceded(
         tuple((tag(";"), space0)),
         separated_pair(
@@ -156,9 +159,10 @@ fn pair_parameter<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     .parse(input)
 }
 
-fn base_parameter<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Parameter<'a>, E> {
+fn base_parameter<'i, E>(input: &'i str) -> IResult<&'i str, Parameter<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     tuple((
         preceded(
             tuple((tag(";"), space0)),
@@ -212,8 +216,9 @@ pub fn parse_parameter_list() {
     );
 }
 
-pub fn parameters<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Vec<Parameter<'a>>, E> {
-    many0(parameter)(input)
+pub fn parameters<'i, E>(input: &'i str) -> IResult<&'i str, Vec<Parameter<'i>>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
+    many0(parameter).parse(input)
 }

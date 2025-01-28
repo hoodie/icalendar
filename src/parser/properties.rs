@@ -15,13 +15,14 @@ use nom::{
     bytes::complete::{tag, take_until, take_while},
     character::complete::{line_ending, multispace0},
     combinator::{cut, opt},
-    error::{context, convert_error, ContextError, ParseError, VerboseError},
+    error::{context, ContextError, ParseError},
     sequence::{preceded, separated_pair, tuple},
     Finish, IResult, Parser,
 };
 
 #[cfg(test)]
 use nom::error::ErrorKind;
+use nom_language::error::{convert_error, VerboseError};
 
 /// [RFC-5545](https://datatracker.ietf.org/doc/html/rfc5545) states that the following
 /// "MAY occur more than once" in a VEVENT, VTODO, VJOURNAL, and VFREEBUSY.
@@ -90,10 +91,10 @@ impl fmt::Display for Property<'_> {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Property<'a> {
+impl<'i> TryFrom<&'i str> for Property<'i> {
     type Error = String;
 
-    fn try_from(input: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(input: &'i str) -> Result<Self, Self::Error> {
         property(input)
             .finish()
             .map(|(_, x)| x)
@@ -306,7 +307,8 @@ fn parse_property_with_breaks() {
 #[test]
 fn parse_invalid_property() {
     let sample_0 = "END;RELTYPE=:c605e4e8-8ea3-4315-b139-19394ab3ced6\n";
-    use nom::error::{ErrorKind::*, VerboseErrorKind::*};
+    use nom::error::ErrorKind::*;
+    use nom_language::error::VerboseErrorKind::*;
     pretty_assertions::assert_eq!(
         property::<VerboseError<&str>>(sample_0),
         Err(nom::Err::Failure(VerboseError {
@@ -366,9 +368,10 @@ fn determin_value_type(name: &ParseString, params: &[Parameter]) -> Option<Value
         .or_else(|| ValueType::by_name(name.as_str()))
 }
 
-pub fn property<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Property<'a>, E> {
+pub fn property<'i, E>(input: &'i str) -> IResult<&'i str, Property<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     context(
         "property",
         cut(tuple((

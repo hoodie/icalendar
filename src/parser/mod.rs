@@ -23,7 +23,7 @@
 //!
 //!
 #![allow(missing_docs)]
-use nom::{error::convert_error, error::VerboseError, Finish};
+use nom::Finish;
 
 mod calendar;
 pub(crate) mod components;
@@ -36,6 +36,7 @@ mod utils;
 
 pub use calendar::Calendar;
 pub use components::Component;
+use nom_language::error::{convert_error, VerboseError};
 pub use parameters::Parameter;
 pub use parsed_string::ParseString;
 pub use properties::Property;

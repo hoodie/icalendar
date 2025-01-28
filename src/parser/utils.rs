@@ -13,9 +13,10 @@ use pretty_assertions::assert_eq;
 use super::parsed_string::ParseString;
 
 // TODO: how do I express <<alpha_or_dash, but not "END">>
-pub fn property_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn property_key<'i, E>(input: &'i str) -> IResult<&'i str, &'i str, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     if input.get(0..=2) == Some("END") || input.get(0..=4) == Some("BEGIN") {
         IResult::Err(Err::Error(nom::error::make_error(
             input,
@@ -26,18 +27,20 @@ pub fn property_key<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     }
 }
 
-pub fn valid_key_sequence<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, &'a str, E> {
+pub fn valid_key_sequence<'i, E>(input: &'i str) -> IResult<&'i str, &'i str, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     take_while(|c: char| {
         c == '.' || c == ',' || c == '/' || c == '_' || c == '-' || c.is_alphanumeric()
     })
     .parse(input)
 }
 
-pub fn valid_key_sequence_cow<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, ParseString<'a>, E> {
+pub fn valid_key_sequence_cow<'i, E>(input: &'i str) -> IResult<&'i str, ParseString<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     take_while(|c: char| {
         c == '.' || c == ',' || c == '/' || c == '_' || c == '-' || c.is_alphanumeric()
     })
@@ -45,17 +48,20 @@ pub fn valid_key_sequence_cow<'a, E: ParseError<&'a str> + ContextError<&'a str>
     .parse(input)
 }
 
-pub fn line<'a, O, E: ParseError<&'a str>, F: Parser<&'a str, O, E>>(
-    prefix: &'a str,
-    f: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E> {
-    line_separated(complete(preceded(tag_no_case(prefix), f)))
+pub fn line<'i, O, E, P>(prefix: &'i str, parser: P) -> impl Parser<&'i str, Output = O, Error = E>
+where
+    E: ParseError<&'i str>,
+    P: Parser<&'i str, Output = O, Error = E>,
+{
+    line_separated(complete(preceded(tag_no_case(prefix), parser)))
 }
 
-pub fn line_separated<'a, O, E: ParseError<&'a str>, F: Parser<&'a str, O, E>>(
-    f: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E> {
-    delimited(many0(line_ending), f, many0(line_ending))
+pub fn line_separated<'i, O, E, P>(parser: P) -> impl Parser<&'i str, Output = O, Error = E>
+where
+    E: ParseError<&'i str>,
+    P: Parser<&'i str, Output = O, Error = E>,
+{
+    delimited(many0(line_ending), parser, many0(line_ending))
 }
 
 /// Normalize content lines.

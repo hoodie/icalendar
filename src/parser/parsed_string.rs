@@ -93,8 +93,8 @@ impl std::fmt::Display for ParseString<'_> {
     }
 }
 
-impl<'a> From<&'a str> for ParseString<'a> {
-    fn from(s: &'a str) -> Self {
+impl<'i> From<&'i str> for ParseString<'i> {
+    fn from(s: &'i str) -> Self {
         ParseString(Cow::Borrowed(s))
     }
 }

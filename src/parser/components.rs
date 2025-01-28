@@ -5,13 +5,14 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     combinator::{all_consuming, complete, cut},
-    error::{context, convert_error, ContextError, ParseError, VerboseError},
+    error::{context, ContextError, ParseError},
     multi::{many0, many_till},
     Finish, IResult, Parser,
 };
 
 #[cfg(test)]
 use nom::error::ErrorKind;
+use nom_language::error::{convert_error, VerboseError};
 use uuid::Uuid;
 
 #[cfg(test)]
@@ -114,10 +115,10 @@ impl<'a> LikeComponent<'a> for Component<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a str> for Component<'a> {
+impl<'i> TryFrom<&'i str> for Component<'i> {
     type Error = String;
 
-    fn try_from(input: &'a str) -> Result<Self, Self::Error> {
+    fn try_from(input: &'i str) -> Result<Self, Self::Error> {
         component(input)
             .finish()
             .map(|(_, x)| x)
@@ -244,10 +245,11 @@ pub fn read_component(input: &str) -> Result<Component<'_>, String> {
         .map_err(|e: VerboseError<&str>| format!("error: {}", convert_error(input, e.clone())))
 }
 
-pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Component<'a>, E> {
-    let (input, name) = line("BEGIN:", valid_key_sequence_cow)(input)?;
+pub fn component<'i, E>(input: &'i str) -> IResult<&'i str, Component<'i>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
+    let (input, name) = line("BEGIN:", valid_key_sequence_cow).parse(input)?;
 
     let (input, (properties, components)) = many_till(
         cut(context(
@@ -272,7 +274,7 @@ pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     })
     .parse(input)?;
 
-    let (input, _) = many0(tag("\n"))(input)?;
+    let (input, _) = many0(tag("\n")).parse(input)?;
 
     Ok((
         input,
@@ -285,9 +287,10 @@ pub fn component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
 }
 
 #[cfg(test)]
-pub fn inner_component<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, InnerComponent, E> {
+pub fn inner_component<'i, E>(input: &'i str) -> IResult<&'i str, InnerComponent, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
     match component::<(_, _)>(input) {
         Ok(result) => Ok((result.0, InnerComponent::from(result.1))),
         Err(_e) => todo!(),
@@ -503,7 +506,8 @@ END:VEVENT
 
 #[test]
 fn test_faulty_component() {
-    use nom::error::{ErrorKind::*, VerboseErrorKind::*};
+    use nom::error::ErrorKind::*;
+    use nom_language::error::VerboseErrorKind::*;
     pretty_assertions::assert_eq!(
         component::<VerboseError<&str>>("BEGIN:FOO\nEND:F0O"),
         Err(nom::Err::Failure(VerboseError {
@@ -512,8 +516,9 @@ fn test_faulty_component() {
     );
 }
 
-pub fn components<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
-    input: &'a str,
-) -> IResult<&'a str, Vec<Component<'a>>, E> {
-    complete(many0(all_consuming(component)))(input)
+pub fn components<'i, E>(input: &'i str) -> IResult<&'i str, Vec<Component<'i>>, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
+    complete(many0(all_consuming(component))).parse(input)
 }
