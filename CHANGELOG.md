@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.16.12](https://github.com/hoodie/icalendar-rs/compare/v0.16.11...v0.16.12) (2025-02-02)
+
+#### Fixes
+
+* **dep:** update to nom 8
+([1edc366](https://github.com/hoodie/icalendar-rs/commit/1edc366a5efe14e2c48dc2d6046c0cce40a61bf9))
+
 ### [v0.16.11](https://github.com/hoodie/icalendar-rs/compare/v0.16.10...v0.16.11) (2025-01-14)
 
 #### Features
