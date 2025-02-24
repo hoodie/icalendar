@@ -159,7 +159,7 @@ impl Property {
             .replace('\\', r#"\\"#)
             .replace(',', r#"\,"#)
             .replace(';', r#"\;"#)
-            .replace('\n', r#"\N"#)
+            .replace('\n', r#"\n"#)
     }
 
     fn quote_if_contains_colon(input: &str) -> String {
@@ -449,14 +449,14 @@ mod tests {
     fn escape_special_characters_in_text() {
         let line = "\n\\;,:";
 
-        let expected = r"\N\\\;\,:";
+        let expected = r"\n\\\;\,:";
         assert_eq!(expected, Property::escape_text(line));
     }
 
     #[test]
     fn escape_special_characters_in_serialized_property() {
         let line = "\n\\;,:";
-        let expected = r"\N\\\;\,:";
+        let expected = r"\n\\\;\,:";
 
         let prop = Property::new("DESCRIPTION", line)
             .append_parameter(("VALUE", "TEXT"))
