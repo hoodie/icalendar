@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.16.13](https://github.com/hoodie/icalendar-rs/compare/v0.16.12...v0.16.13) (2025-02-25)
+
+#### Fixes
+
+* Use \n rather than \N for encoding newlines.
+([c295da0](https://github.com/hoodie/icalendar-rs/commit/c295da03d6f1a3d314429330c8bed5ca7c6a9112))
+
 ### [v0.16.12](https://github.com/hoodie/icalendar-rs/compare/v0.16.11...v0.16.12) (2025-02-02)
 
 #### Fixes
