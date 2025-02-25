@@ -2,27 +2,27 @@ use std::{fmt, str::FromStr};
 
 use chrono::Utc;
 use nom::{
+    Finish, IResult, Parser,
     branch::alt,
     bytes::complete::tag,
     combinator::{all_consuming, complete, cut},
-    error::{context, ContextError, ParseError},
-    multi::{many0, many_till},
-    Finish, IResult, Parser,
+    error::{ContextError, ParseError, context},
+    multi::{many_till, many0},
 };
 
 #[cfg(test)]
 use nom::error::ErrorKind;
-use nom_language::error::{convert_error, VerboseError};
+use nom_language::error::{VerboseError, convert_error};
 use uuid::Uuid;
 
 #[cfg(test)]
 use super::parameters::Parameter;
 use super::{
+    Property,
     parsed_string::ParseString,
     properties::property,
     unfold,
     utils::{line, line_separated, valid_key_sequence_cow},
-    Property,
 };
 
 #[cfg(test)]
@@ -30,7 +30,7 @@ use pretty_assertions::assert_eq;
 
 use crate::{
     calendar::CalendarComponent,
-    components::{date_time::format_utc_date_time, InnerComponent, Other},
+    components::{InnerComponent, Other, date_time::format_utc_date_time},
 };
 
 /// The parsing equivalent of [`crate::components::Component`]
@@ -366,30 +366,16 @@ fn test_nested_components() {
         "BEGIN:FOO\nFOO-PROP:spam\nBEGIN:BAR\nBAR-PROP:spam\nBEGIN:BAR\nBAR-PROP:spam\nEND:BAR\nEND:BAR\nEND:FOO",
         Component {
             name: "FOO".into(),
-            properties: vec![Property::new_ref (
-                "FOO-PROP",
-                "spam",
-            )],
-            components: vec![
-                Component {
+            properties: vec![Property::new_ref("FOO-PROP", "spam",)],
+            components: vec![Component {
+                name: "BAR".into(),
+                properties: vec![Property::new_ref("BAR-PROP", "spam",)],
+                components: vec![Component {
                     name: "BAR".into(),
-                    properties: vec![Property::new_ref (
-                         "BAR-PROP",
-                         "spam",
-                    )],
-                    components: vec![
-                        Component {
-                            name: "BAR".into(),
-                            properties: vec![Property::new_ref (
-                                "BAR-PROP",
-                                "spam",
-                            )],
-                            components: vec![]
-                        },
-
-                    ]
-                },
-            ]
+                    properties: vec![Property::new_ref("BAR-PROP", "spam",)],
+                    components: vec![]
+                },]
+            },]
         }
     );
 }
@@ -424,27 +410,18 @@ END:VEVENT
         "BEGIN:FOO\nFOO-PROP:spam\nBEGIN:BAR\nBAR-PROP:spam\nEND:BAR\nBEGIN:BAR\nBAR-PROP:spam\nEND:BAR\nEND:FOO",
         Component {
             name: "FOO".into(),
-            properties: vec![Property::new_ref(
-                "FOO-PROP",
-                "spam",
-            )],
+            properties: vec![Property::new_ref("FOO-PROP", "spam",)],
             components: vec![
                 Component {
-                name: "BAR".into(),
-                properties: vec![Property::new_ref(
-                    "BAR-PROP",
-                    "spam",
-                )],
-                components: vec![]
-            },
+                    name: "BAR".into(),
+                    properties: vec![Property::new_ref("BAR-PROP", "spam",)],
+                    components: vec![]
+                },
                 Component {
-                name: "BAR".into(),
-                properties: vec![Property::new_ref(
-                    "BAR-PROP",
-                    "spam",
-                )],
-                components: vec![]
-            }
+                    name: "BAR".into(),
+                    properties: vec![Property::new_ref("BAR-PROP", "spam",)],
+                    components: vec![]
+                }
             ]
         }
     );

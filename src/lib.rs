@@ -49,9 +49,9 @@ mod value_types;
 pub use crate::{
     calendar::{Calendar, CalendarComponent},
     components::{
+        Component, Event, EventLike, Todo, Venue,
         alarm::{Alarm, Related, Trigger},
         date_time::{CalendarDateTime, DatePerhapsTime},
-        Component, Event, EventLike, Todo, Venue,
     },
     properties::{Class, EventStatus, Parameter, Property, TodoStatus},
     value_types::ValueType,

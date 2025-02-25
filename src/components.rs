@@ -202,11 +202,7 @@ pub trait Component {
     /// Ranges from 0 to 10.
     fn get_priority(&self) -> Option<u32> {
         let priority = self.property_value("PRIORITY")?.parse().ok()?;
-        if priority <= 10 {
-            Some(priority)
-        } else {
-            None
-        }
+        if priority <= 10 { Some(priority) } else { None }
     }
 
     /// Prints to stdout

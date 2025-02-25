@@ -6,23 +6,23 @@ use std::{
 use crate::{parser::utils::valid_key_sequence_cow, properties::fold_line, value_types::ValueType};
 
 use super::{
-    parameters::{parameters, Parameter},
+    parameters::{Parameter, parameters},
     parsed_string::ParseString,
     utils::property_key,
 };
 use nom::{
+    Finish, IResult, Parser,
     branch::alt,
     bytes::complete::{tag, take_until, take_while},
     character::complete::{line_ending, multispace0},
     combinator::{cut, opt},
-    error::{context, ContextError, ParseError},
+    error::{ContextError, ParseError, context},
     sequence::{preceded, separated_pair, tuple},
-    Finish, IResult, Parser,
 };
 
 #[cfg(test)]
 use nom::error::ErrorKind;
-use nom_language::error::{convert_error, VerboseError};
+use nom_language::error::{VerboseError, convert_error};
 
 /// [RFC-5545](https://datatracker.ietf.org/doc/html/rfc5545) states that the following
 /// "MAY occur more than once" in a VEVENT, VTODO, VJOURNAL, and VFREEBUSY.

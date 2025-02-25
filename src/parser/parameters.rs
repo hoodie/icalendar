@@ -1,4 +1,5 @@
 use nom::{
+    Finish, IResult, Parser,
     branch::alt,
     bytes::complete::{is_not, tag, take_till1},
     character::complete::space0,
@@ -6,12 +7,11 @@ use nom::{
     error::{ContextError, ParseError},
     multi::many0,
     sequence::{delimited, preceded, separated_pair, tuple},
-    Finish, IResult, Parser,
 };
 
 #[cfg(test)]
 use nom::error::ErrorKind;
-use nom_language::error::{convert_error, VerboseError};
+use nom_language::error::{VerboseError, convert_error};
 
 use super::{parsed_string::ParseString, utils::valid_key_sequence_cow};
 
