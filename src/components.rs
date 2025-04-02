@@ -1,4 +1,5 @@
 use chrono::{DateTime, NaiveDate, Utc};
+use rrule::RRuleSet;
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -354,6 +355,27 @@ pub trait EventLike: Component {
     /// Gets the location
     fn get_location(&self) -> Option<&str> {
         self.property_value("LOCATION")
+    }
+
+    /// Set recurrence rules
+    fn recurrence(&mut self, rruleset: RRuleSet) -> &mut Self {
+        let properties = rruleset
+            .get_rrule()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        self.add_property("RRULE", properties)
+    }
+
+    /// Get recurrence rules
+    fn get_recurrence(&self) -> Option<RRuleSet> {
+        let dt_start_str = self.property_value("DTSTART")?;
+        let rrule_str = self.property_value("RRULE")?;
+        let rrules = format!("DTSTART:{}\nRRULE:{}", dt_start_str, rrule_str);
+
+        rrules.parse::<RRuleSet>().ok()
     }
 
     /// Set the ALARM for this event
