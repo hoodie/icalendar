@@ -608,7 +608,7 @@ mod tests {
     #[test]
     #[cfg(feature = "recurrence")]
     fn get_recurrence() {
-        use crate::{Frequency, NWeekday, RRule, Tz, Weekday};
+        use crate::rrule::{Frequency, NWeekday, RRule, Tz, Weekday};
 
         let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
         let dt_start = Tz::UTC.ymd(2001, 3, 13).and_hms(0, 0, 0);
