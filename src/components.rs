@@ -578,4 +578,39 @@ mod tests {
         assert_eq!(event.get_start(), Some(naive_date.into()));
         assert_eq!(event.get_end(), Some(naive_date.into()));
     }
+
+    #[test]
+    fn get_recurrence() {
+        use rrule::{Frequency, NWeekday, RRule, Tz, Weekday};
+
+        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let dt_start = Tz::UTC.ymd(2001, 3, 13).and_hms(0, 0, 0);
+
+        let rrule_set = RRule::default()
+            .count(4)
+            .freq(Frequency::Weekly)
+            .by_weekday(vec![
+                NWeekday::Every(Weekday::Tue),
+                NWeekday::Every(Weekday::Wed),
+            ])
+            .build(dt_start)
+            .unwrap();
+
+        let event = Event::new()
+            .starts(naive_date)
+            .ends(naive_date)
+            .recurrence(rrule_set)
+            .done();
+
+        let output = event.get_recurrence().unwrap();
+        let output_rrules = output.get_rrule();
+
+        assert_eq!(output_rrules.len(), 1);
+        assert_eq!(output_rrules[0].get_freq(), Frequency::Weekly);
+        assert_eq!(output_rrules[0].get_interval(), 1);
+        assert_eq!(
+            output_rrules[0].get_by_weekday(),
+            [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
+        );
+    }
 }
