@@ -359,13 +359,34 @@ pub trait EventLike: Component {
 
     /// Set recurrence rules
     fn recurrence(&mut self, rruleset: RRuleSet) -> &mut Self {
-        let properties = rruleset
+        let rrules = rruleset
             .get_rrule()
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join("\n");
 
+        let mut rdates = rruleset
+            .get_rdate()
+            .iter()
+            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        if !rdates.is_empty() {
+            rdates = format!("\nRDATE;VALUE=DATE-TIME:{rdates}");
+        }
+
+        let mut exdates = rruleset
+            .get_exdate()
+            .iter()
+            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        if !exdates.is_empty() {
+            exdates = format!("\nEXDATE;VALUE=DATE-TIME:{exdates}");
+        }
+
+        let properties = format!("{rrules}{rdates}{exdates}");
         self.add_property("RRULE", properties)
     }
 
@@ -374,6 +395,8 @@ pub trait EventLike: Component {
         let dt_start_str = self.property_value("DTSTART")?;
         let rrule_str = self.property_value("RRULE")?;
         let rrules = format!("DTSTART:{}\nRRULE:{}", dt_start_str, rrule_str);
+
+        println!("rrules\n{}", rrules);
 
         rrules.parse::<RRuleSet>().ok()
     }
@@ -594,7 +617,8 @@ mod tests {
                 NWeekday::Every(Weekday::Wed),
             ])
             .build(dt_start)
-            .unwrap();
+            .unwrap()
+            .set_exdates(vec![Tz::UTC.ymd(2001, 3, 14).and_hms(0, 0, 0)]);
 
         let event = Event::new()
             .starts(naive_date)
@@ -603,6 +627,7 @@ mod tests {
             .done();
 
         let output = event.get_recurrence().unwrap();
+
         let output_rrules = output.get_rrule();
 
         assert_eq!(output_rrules.len(), 1);
@@ -611,6 +636,13 @@ mod tests {
         assert_eq!(
             output_rrules.first().unwrap().get_by_weekday(),
             [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
+        );
+
+        let output_exdates = output.get_exdate();
+
+        assert_eq!(
+            output_exdates,
+            &vec![Tz::UTC.ymd(2001, 3, 14).and_hms(0, 0, 0)]
         );
     }
 }
