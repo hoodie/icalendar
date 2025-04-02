@@ -606,10 +606,10 @@ mod tests {
         let output_rrules = output.get_rrule();
 
         assert_eq!(output_rrules.len(), 1);
-        assert_eq!(output_rrules[0].get_freq(), Frequency::Weekly);
-        assert_eq!(output_rrules[0].get_interval(), 1);
+        assert_eq!(output_rrules.first().unwrap().get_freq(), Frequency::Weekly);
+        assert_eq!(output_rrules.first().unwrap().get_interval(), 1);
         assert_eq!(
-            output_rrules[0].get_by_weekday(),
+            output_rrules.first().unwrap().get_by_weekday(),
             [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
         );
     }
