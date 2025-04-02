@@ -27,6 +27,7 @@ serde_json = { version = "1.0.149", optional = true }
 iso8601 = "0.6"
 chrono-tz = { version = "0.10", optional = true }
 time = { version = "0.3.46", optional = true }
+rrule = "0.10.0"
 
 [dependencies.chrono]
 version = "0.4.43"
