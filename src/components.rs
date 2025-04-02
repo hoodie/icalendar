@@ -1,4 +1,5 @@
 use chrono::{DateTime, NaiveDate, Utc};
+#[cfg(feature = "recurrence")]
 use rrule::RRuleSet;
 use uuid::Uuid;
 
@@ -358,6 +359,7 @@ pub trait EventLike: Component {
     }
 
     /// Set recurrence rules
+    #[cfg(feature = "recurrence")]
     fn recurrence(&mut self, rruleset: RRuleSet) -> &mut Self {
         let rrules = rruleset
             .get_rrule()
@@ -391,6 +393,7 @@ pub trait EventLike: Component {
     }
 
     /// Get recurrence rules
+    #[cfg(feature = "recurrence")]
     fn get_recurrence(&self) -> Option<RRuleSet> {
         let dt_start_str = self.property_value("DTSTART")?;
         let rrule_str = self.property_value("RRULE")?;
@@ -603,8 +606,9 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "recurrence")]
     fn get_recurrence() {
-        use rrule::{Frequency, NWeekday, RRule, Tz, Weekday};
+        use crate::{Frequency, NWeekday, RRule, Tz, Weekday};
 
         let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
         let dt_start = Tz::UTC.ymd(2001, 3, 13).and_hms(0, 0, 0);
