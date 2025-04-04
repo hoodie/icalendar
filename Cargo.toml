@@ -13,7 +13,7 @@ documentation = "https://docs.rs/icalendar/"
 repository = "https://github.com/hoodie/icalendar-rs"
 readme = "README.md"
 
-rust-version = "1.60"
+rust-version = "1.80"
 exclude = ["fixtures", ".github", ".gitignore", "*.json"]
 
 [features]
@@ -41,7 +41,7 @@ version = "0.1"
 optional = true
 
 [dependencies.rrule]
-version = "0.10.0"
+version = "0.13"
 optional = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.uuid]
