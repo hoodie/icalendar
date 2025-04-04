@@ -56,6 +56,7 @@ jobs:
           - "parser,serde_json"  # serde_json implies serde
           - "parser,chrono-tz"
           - "parser,time"
+          - "recurrence"
           - "chrono-tz"  # works without parser
           - "time"  # works without parser
           - "parser,serde_json,chrono-tz,time"  # all features combined
