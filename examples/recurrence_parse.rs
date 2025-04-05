@@ -15,9 +15,7 @@ fn main() {
         if let CalendarComponent::Event(event) = component {
             println!("Event: {}", event.get_summary().unwrap());
             if let Some(rrules) = event.get_recurrence() {
-                let datetimes: Vec<DateTime<rrule::Tz>> = rrules
-                    .all(RECURRENCE_LIMIT)
-                    .dates;
+                let datetimes: Vec<DateTime<rrule::Tz>> = rrules.all(RECURRENCE_LIMIT).dates;
 
                 println!("Repeating on the following dates (showing first 10): ");
                 println!("{:#?}", &datetimes[..10]);

@@ -92,3 +92,13 @@ required-features = ["parser"]
 name = "timezone"
 path = "examples/timezone.rs"
 required-features = ["chrono-tz"]
+
+[[example]]
+name = "recurrence"
+path = "examples/recurrence.rs"
+required-features = ["recurrence"]
+
+[[example]]
+name = "recurrence_parse"
+path = "examples/recurrence_parse.rs"
+required-features = ["recurrence"]
