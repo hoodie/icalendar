@@ -368,28 +368,23 @@ pub trait EventLike: Component {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let mut rdates = rruleset
+        let rdates = rruleset
             .get_rdate()
             .iter()
             .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
             .collect::<Vec<_>>()
             .join(",");
-        if !rdates.is_empty() {
-            rdates = format!("\nRDATE;VALUE=DATE-TIME:{rdates}");
-        }
 
-        let mut exdates = rruleset
+        let exdates = rruleset
             .get_exdate()
             .iter()
             .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
             .collect::<Vec<_>>()
             .join(",");
-        if !exdates.is_empty() {
-            exdates = format!("\nEXDATE;VALUE=DATE-TIME:{exdates}");
-        }
 
-        let properties = format!("{rrules}{rdates}{exdates}");
-        self.add_property("RRULE", properties)
+        self.add_property("RRULE", rrules)
+            .add_multi_property("RDATE", &rdates)
+            .add_multi_property("EXDATE", &exdates)
     }
 
     /// Get recurrence rules
@@ -397,8 +392,32 @@ pub trait EventLike: Component {
     fn get_recurrence(&self) -> Option<RRuleSet> {
         let dt_start_str = self.property_value("DTSTART")?;
         let rrule_str = self.property_value("RRULE")?;
-        let rrules = format!("DTSTART:{}\nRRULE:{}", dt_start_str, rrule_str);
 
+        let mut rdates_str = self
+            .multi_properties()
+            .get("RDATE")
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|item| item.value())
+            .collect::<Vec<_>>()
+            .join(",");
+        if !rdates_str.is_empty() {
+            rdates_str = format!("\nRDATE:{rdates_str}");
+        }
+
+        let mut exdates_str = self
+            .multi_properties()
+            .get("EXDATE")
+            .unwrap_or(&vec![])
+            .iter()
+            .map(|item| item.value())
+            .collect::<Vec<_>>()
+            .join(",");
+        if !exdates_str.is_empty() {
+            exdates_str = format!("\nEXDATE:{exdates_str}");
+        }
+
+        let rrules = format!("DTSTART:{dt_start_str}\nRRULE:{rrule_str}{rdates_str}{exdates_str}");
         rrules.parse::<RRuleSet>().ok()
     }
 
