@@ -399,8 +399,6 @@ pub trait EventLike: Component {
         let rrule_str = self.property_value("RRULE")?;
         let rrules = format!("DTSTART:{}\nRRULE:{}", dt_start_str, rrule_str);
 
-        println!("rrules\n{}", rrules);
-
         rrules.parse::<RRuleSet>().ok()
     }
 
@@ -611,7 +609,8 @@ mod tests {
         use crate::rrule::{Frequency, NWeekday, RRule, Tz, Weekday};
 
         let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
-        let dt_start = Tz::UTC.ymd(2001, 3, 13).and_hms(0, 0, 0);
+        let dt_start = Tz::UTC.with_ymd_and_hms(2001, 3, 13, 0, 0, 0).unwrap();
+        let ex_date = Tz::UTC.with_ymd_and_hms(2001, 3, 14, 0, 0, 0).unwrap();
 
         let rrule_set = RRule::default()
             .count(4)
@@ -622,7 +621,7 @@ mod tests {
             ])
             .build(dt_start)
             .unwrap()
-            .set_exdates(vec![Tz::UTC.ymd(2001, 3, 14).and_hms(0, 0, 0)]);
+            .set_exdates(vec![ex_date]);
 
         let event = Event::new()
             .starts(naive_date)
@@ -644,9 +643,6 @@ mod tests {
 
         let output_exdates = output.get_exdate();
 
-        assert_eq!(
-            output_exdates,
-            &vec![Tz::UTC.ymd(2001, 3, 14).and_hms(0, 0, 0)]
-        );
+        assert_eq!(output_exdates, &vec![ex_date]);
     }
 }
