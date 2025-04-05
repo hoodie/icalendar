@@ -479,7 +479,7 @@ pub trait EventLike: Component {
             .get("RDATE")
             .unwrap_or(&vec![])
             .iter()
-            .map(|item| item.value())
+            .map(Property::value)
             .collect::<Vec<_>>()
             .join(",");
         if !rdates_str.is_empty() {
@@ -491,7 +491,7 @@ pub trait EventLike: Component {
             .get("EXDATE")
             .unwrap_or(&vec![])
             .iter()
-            .map(|item| item.value())
+            .map(Property::value)
             .collect::<Vec<_>>()
             .join(",");
         if !exdates_str.is_empty() {
