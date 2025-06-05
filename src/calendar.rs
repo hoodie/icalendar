@@ -81,6 +81,19 @@ impl Default for Calendar {
     }
 }
 
+impl<U> Extend<U> for Calendar
+where
+    U: Into<CalendarComponent>,
+{
+    /// Extends this `Calendar` with the contends of another.
+    fn extend<T>(&mut self, other: T)
+    where
+        T: IntoIterator<Item = U>,
+    {
+        self.extend(other.into_iter().map(Into::into));
+    }
+}
+
 impl Calendar {
     /// Creates a new Calendar.
     pub fn new() -> Self {
