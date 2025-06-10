@@ -363,6 +363,7 @@ impl From<NaiveDate> for DatePerhapsTime {
     }
 }
 
+#[cfg(feature = "time")]
 impl From<time::Date> for DatePerhapsTime {
     fn from(date: time::Date) -> Self {
         let (y, o) = date.to_ordinal_date();
@@ -370,6 +371,7 @@ impl From<time::Date> for DatePerhapsTime {
     }
 }
 
+#[cfg(feature = "time")]
 impl From<time::OffsetDateTime> for DatePerhapsTime {
     fn from(datetime: time::OffsetDateTime) -> Self {
         // NOTE: A `time::UtcOffset` doesn't carry information about the timezone other than the offset
@@ -377,6 +379,7 @@ impl From<time::OffsetDateTime> for DatePerhapsTime {
     }
 }
 
+#[cfg(feature = "time")]
 impl From<time::UtcDateTime> for DatePerhapsTime {
     fn from(datetime: time::UtcDateTime) -> Self {
         Self::DateTime(CalendarDateTime::Utc(DateTime::from_timestamp_nanos(
@@ -385,6 +388,7 @@ impl From<time::UtcDateTime> for DatePerhapsTime {
     }
 }
 
+#[cfg(feature = "time")]
 impl From<time::PrimitiveDateTime> for DatePerhapsTime {
     fn from(datetime: time::PrimitiveDateTime) -> Self {
         Self::DateTime(
