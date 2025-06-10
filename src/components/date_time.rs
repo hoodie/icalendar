@@ -382,23 +382,21 @@ impl From<time::OffsetDateTime> for DatePerhapsTime {
 #[cfg(feature = "time")]
 impl From<time::UtcDateTime> for DatePerhapsTime {
     fn from(datetime: time::UtcDateTime) -> Self {
-        Self::DateTime(CalendarDateTime::Utc(DateTime::from_timestamp_nanos(
-            datetime.unix_timestamp_nanos() as i64,
-        )))
+        Self::DateTime(CalendarDateTime::Utc(
+            DateTime::from_timestamp(datetime.unix_timestamp(), datetime.nanosecond())
+                .expect("bug: invalid time"),
+        ))
     }
 }
 
 #[cfg(feature = "time")]
 impl From<time::PrimitiveDateTime> for DatePerhapsTime {
     fn from(datetime: time::PrimitiveDateTime) -> Self {
-        Self::DateTime(
-            CalendarDateTime::Floating(
-                NaiveDateTime::from_timestamp_nanos(
-                    datetime.assume_utc().unix_timestamp_nanos() as i64
-                )
-                .expect("bug: datetime out of range"),
-            ),
-        )
+        let utc = datetime.assume_utc();
+        Self::DateTime(CalendarDateTime::Floating(
+            NaiveDateTime::from_timestamp_opt(utc.unix_timestamp(), utc.nanosecond())
+                .expect("bug: invalid date"),
+        ))
     }
 }
 
