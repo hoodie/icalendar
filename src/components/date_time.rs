@@ -363,6 +363,43 @@ impl From<NaiveDate> for DatePerhapsTime {
     }
 }
 
+#[cfg(feature = "time")]
+impl From<time::Date> for DatePerhapsTime {
+    fn from(date: time::Date) -> Self {
+        let (y, o) = date.to_ordinal_date();
+        Self::Date(NaiveDate::from_yo_opt(y, o as u32).expect("bug: invalid date"))
+    }
+}
+
+#[cfg(feature = "time")]
+impl From<time::OffsetDateTime> for DatePerhapsTime {
+    fn from(datetime: time::OffsetDateTime) -> Self {
+        // NOTE: A `time::UtcOffset` doesn't carry information about the timezone other than the offset
+        datetime.to_utc().into()
+    }
+}
+
+#[cfg(feature = "time")]
+impl From<time::UtcDateTime> for DatePerhapsTime {
+    fn from(datetime: time::UtcDateTime) -> Self {
+        Self::DateTime(CalendarDateTime::Utc(
+            DateTime::from_timestamp(datetime.unix_timestamp(), datetime.nanosecond())
+                .expect("bug: invalid time"),
+        ))
+    }
+}
+
+#[cfg(feature = "time")]
+impl From<time::PrimitiveDateTime> for DatePerhapsTime {
+    fn from(datetime: time::PrimitiveDateTime) -> Self {
+        let utc = datetime.assume_utc();
+        Self::DateTime(CalendarDateTime::Floating(
+            NaiveDateTime::from_timestamp_opt(utc.unix_timestamp(), utc.nanosecond())
+                .expect("bug: invalid date"),
+        ))
+    }
+}
+
 #[cfg(feature = "parser")]
 impl TryFrom<&crate::parser::Property<'_>> for DatePerhapsTime {
     type Error = &'static str;
