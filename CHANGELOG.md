@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.16.14](https://github.com/hoodie/icalendar-rs/compare/v0.16.13...v0.16.14) (2025-06-10)
+
+#### Features
+
+* implement std::iter::Extend for Calendar
+([bbb7090](https://github.com/hoodie/icalendar-rs/commit/bbb709001d123d8373a72308850222858d8fa417))
+
 ### [v0.16.13](https://github.com/hoodie/icalendar-rs/compare/v0.16.12...v0.16.13) (2025-02-25)
 
 #### Fixes
@@ -97,7 +104,7 @@ closes [#91](https://github.com/hoodie/icalendar-rs/issues/91)
 * **deps:** update rust crate chrono-tz to 0.8.5
 ([4ef3052](https://github.com/hoodie/icalendar-rs/commit/4ef3052bc0073c9cce0a5eae4f534b3ea7fbd5fe))
 
-## [v0.16.0](https://github.com/hoodie/icalendar-rs/compare/v0.15.8...v0.16.0) (2023-11-22)
+## [v0.16.0](https://github.com/hoodie/icalendar-rs/compare/v0.15.9...v0.16.0) (2023-11-22)
 
 ### ⚠ BREAKING CHANGE
 
@@ -108,6 +115,13 @@ closes [#91](https://github.com/hoodie/icalendar-rs/issues/91)
 
 * parsing multi-properties
 ([6fe3e1f](https://github.com/hoodie/icalendar-rs/commit/6fe3e1f46007c89521e834d825d21c97f78f01d7))
+
+### [v0.15.9](https://github.com/hoodie/icalendar-rs/compare/v0.15.8...v0.15.9) (2023-11-22)
+
+#### Fixes
+
+* parsing multi-properties
+([c0ffee9](https://github.com/hoodie/icalendar-rs/commit/c0ffee9dfaaa27e18692349602b50c5d87a422a5))
 
 ### [v0.15.8](https://github.com/hoodie/icalendar-rs/compare/v0.15.7...v0.15.8) (2023-10-30)
 
