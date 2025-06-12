@@ -11,7 +11,7 @@ jobs:
         rust:
           - stable
           - beta
-          - stable minus 8 releases
+          - stable minus 4 releases
     steps:
       - uses: actions/checkout@v4
       - uses: Swatinem/rust-cache@v2
@@ -41,6 +41,9 @@ jobs:
 
       - name: test (with TZ)
         run: cargo test --features chrono-tz
+
+      - name: test (with recurrence)
+        run: cargo test --features recurrence
 
   semver:
     name: cargo-semver-checks

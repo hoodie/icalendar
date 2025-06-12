@@ -1,4 +1,6 @@
 use chrono::{DateTime, NaiveDate, Utc};
+#[cfg(feature = "recurrence")]
+use rrule::RRuleSet;
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -356,6 +358,69 @@ pub trait EventLike: Component {
         self.property_value("LOCATION")
     }
 
+    /// Set recurrence rules
+    #[cfg(feature = "recurrence")]
+    fn recurrence(&mut self, rruleset: RRuleSet) -> &mut Self {
+        let rrules = rruleset
+            .get_rrule()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        let rdates = rruleset
+            .get_rdate()
+            .iter()
+            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        let exdates = rruleset
+            .get_exdate()
+            .iter()
+            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+
+        self.add_property("RRULE", rrules)
+            .add_multi_property("RDATE", &rdates)
+            .add_multi_property("EXDATE", &exdates)
+    }
+
+    /// Get recurrence rules
+    #[cfg(feature = "recurrence")]
+    fn get_recurrence(&self) -> Option<RRuleSet> {
+        let dt_start_str = self.property_value("DTSTART")?;
+        let rrule_str = self.property_value("RRULE")?;
+
+        let mut rdates_str = self
+            .multi_properties()
+            .get("RDATE")
+            .unwrap_or(&vec![])
+            .iter()
+            .map(Property::value)
+            .collect::<Vec<_>>()
+            .join(",");
+        if !rdates_str.is_empty() {
+            rdates_str = format!("\nRDATE:{rdates_str}");
+        }
+
+        let mut exdates_str = self
+            .multi_properties()
+            .get("EXDATE")
+            .unwrap_or(&vec![])
+            .iter()
+            .map(Property::value)
+            .collect::<Vec<_>>()
+            .join(",");
+        if !exdates_str.is_empty() {
+            exdates_str = format!("\nEXDATE:{exdates_str}");
+        }
+
+        let rrules = format!("DTSTART:{dt_start_str}\nRRULE:{rrule_str}{rdates_str}{exdates_str}");
+        rrules.parse::<RRuleSet>().ok()
+    }
+
     /// Set the ALARM for this event
     /// [3.6.6.  Alarm Component](https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.6)
     fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
@@ -555,5 +620,48 @@ mod tests {
         let event = Event::new().starts(naive_date).ends(naive_date).done();
         assert_eq!(event.get_start(), Some(naive_date.into()));
         assert_eq!(event.get_end(), Some(naive_date.into()));
+    }
+
+    #[test]
+    #[cfg(feature = "recurrence")]
+    fn get_recurrence() {
+        use crate::rrule::{Frequency, NWeekday, RRule, Tz, Weekday};
+
+        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let dt_start = Tz::UTC.with_ymd_and_hms(2001, 3, 13, 0, 0, 0).unwrap();
+        let ex_date = Tz::UTC.with_ymd_and_hms(2001, 3, 14, 0, 0, 0).unwrap();
+
+        let rrule_set = RRule::default()
+            .count(4)
+            .freq(Frequency::Weekly)
+            .by_weekday(vec![
+                NWeekday::Every(Weekday::Tue),
+                NWeekday::Every(Weekday::Wed),
+            ])
+            .build(dt_start)
+            .unwrap()
+            .set_exdates(vec![ex_date]);
+
+        let event = Event::new()
+            .starts(naive_date)
+            .ends(naive_date)
+            .recurrence(rrule_set)
+            .done();
+
+        let output = event.get_recurrence().unwrap();
+
+        let output_rrules = output.get_rrule();
+
+        assert_eq!(output_rrules.len(), 1);
+        assert_eq!(output_rrules.first().unwrap().get_freq(), Frequency::Weekly);
+        assert_eq!(output_rrules.first().unwrap().get_interval(), 1);
+        assert_eq!(
+            output_rrules.first().unwrap().get_by_weekday(),
+            [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
+        );
+
+        let output_exdates = output.get_exdate();
+
+        assert_eq!(output_exdates, &vec![ex_date]);
     }
 }
