@@ -1,6 +1,6 @@
 use crate::calendar::CalendarComponent;
 
-use super::{components::LikeComponent, read_calendar, unfold, Component, Property};
+use super::{Component, Property, components::LikeComponent, read_calendar, unfold};
 use core::{fmt, str::FromStr};
 
 /// Helper-type for reserialization

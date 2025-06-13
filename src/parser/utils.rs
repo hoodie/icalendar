@@ -1,11 +1,11 @@
 use nom::{
+    Err, IResult, Parser,
     bytes::complete::{tag_no_case, take_while},
     character::complete::line_ending,
     combinator::complete,
     error::{ContextError, ParseError},
     multi::many0,
     sequence::{delimited, preceded},
-    Err, IResult, Parser,
 };
 #[cfg(test)]
 use pretty_assertions::assert_eq;
