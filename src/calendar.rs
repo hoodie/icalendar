@@ -251,6 +251,47 @@ impl Calendar {
         print_crlf!("{}", self);
         Ok(())
     }
+
+    /// Returns an iterator over all `Event` components.
+    pub fn events(&self) -> impl Iterator<Item = &Event> {
+        self.components
+            .iter()
+            .filter_map(|component| match component {
+                CalendarComponent::Event(event) => Some(event),
+                _ => None,
+            })
+    }
+
+    /// Returns an iterator over all mutable `Event` components.
+    pub fn events_mut(&mut self) -> impl Iterator<Item = &mut Event> {
+        self.components
+            .iter_mut()
+            .filter_map(|component| match component {
+                CalendarComponent::Event(event) => Some(event),
+                _ => None,
+            })
+    }
+
+    /// Returns an iterator over all `Todo` components.
+    pub fn todos(&self) -> impl Iterator<Item = &Todo> {
+        self.components
+            .iter()
+            .filter_map(|component| match component {
+                CalendarComponent::Todo(todo) => Some(todo),
+                _ => None,
+            })
+    }
+
+    /// Returns an iterator over all mutable `Todo` components.
+    pub fn todos_mut(&mut self) -> impl Iterator<Item = &mut Todo> {
+        self.components
+            .iter_mut()
+            .filter_map(|component| match component {
+                CalendarComponent::Todo(todo) => Some(todo),
+                _ => None,
+            })
+    }
+    // TODO .alarms() ?
 }
 
 impl fmt::Display for Calendar {
