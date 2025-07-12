@@ -37,6 +37,11 @@ impl Event {
     //pub fn repeats<R:Repeater+?Sized>(&mut self, repeat: R) -> &mut Self {
     //    unimplemented!()
     //}
+
+    /// Remove the status property from an event
+    pub fn remove_status(&mut self) -> &mut Self {
+        self.remove_property("STATUS")
+    }
 }
 
 #[cfg(test)]
@@ -53,5 +58,16 @@ mod tests {
     fn get_properties_set() {
         let event = Event::new().status(EventStatus::Tentative).done();
         assert_eq!(event.get_status(), Some(EventStatus::Tentative));
+    }
+
+    #[test]
+    fn test_remove_status() {
+        let mut event = Event::new().status(EventStatus::Cancelled).done();
+
+        assert_eq!(event.get_status(), Some(EventStatus::Cancelled));
+
+        event.remove_status();
+
+        assert_eq!(event.get_status(), None);
     }
 }
