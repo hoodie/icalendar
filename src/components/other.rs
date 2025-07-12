@@ -48,6 +48,16 @@ impl Component for Other {
         self.inner.components.push(child.into());
         self
     }
+
+    fn remove_property(&mut self, key: &str) -> &mut Self {
+        self.inner.properties.remove(key);
+        self
+    }
+
+    fn remove_multi_property(&mut self, key: &str) -> &mut Self {
+        self.inner.multi_properties.remove(key);
+        self
+    }
 }
 
 impl From<(String, InnerComponent)> for Other {
