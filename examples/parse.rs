@@ -12,11 +12,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let parsed_calendar = match sample.parse::<Calendar>() {
             Ok(read) => read,
             Err(error) => {
-                println!("{}", error); // println!(error) yields prettier output
+                println!("{error}"); // println!(error) yields prettier output
                 return Ok(());
             }
         };
-        println!("{}", parsed_calendar);
+        println!("{parsed_calendar}");
     }
     Ok(())
 }

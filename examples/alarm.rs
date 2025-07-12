@@ -76,6 +76,6 @@ fn main() {
 
         let source = calendar.to_string();
         let reparse = Calendar::from_str(&source).unwrap();
-        println!("{:#?}", reparse);
+        println!("{reparse:#?}");
     }
 }

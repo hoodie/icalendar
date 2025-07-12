@@ -52,13 +52,13 @@ fn init_test_event() -> (&'static str, &'static str, Calendar) {
 #[ignore = "equality difficult"]
 fn serializes_correctly() {
     let (_, _, built_calendar) = init_test_event();
-    println!("built calendar:\n{:#?}", built_calendar); // inner representation of what we built
+    println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
     println!("serialized: {}", &serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
-    println!("parsed again:\n{:#?}", from_parsed); // inner representation of what we built and then parsed
+    println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
 
     assert_eq!(built_calendar, from_parsed)
 }
@@ -66,13 +66,13 @@ fn serializes_correctly() {
 #[test]
 fn escape_late() {
     let (summary, description, built_calendar) = init_test_event();
-    println!("built calendar:\n{:#?}", built_calendar); // inner representation of what we built
+    println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
     println!("serialized: {}", &serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
-    println!("parsed again:\n{:#?}", from_parsed); // inner representation of what we built and then parsed
+    println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
 
     // these should not be escaped
     assert_eq!(get_summary(&built_calendar), summary);
@@ -82,13 +82,13 @@ fn escape_late() {
 #[test]
 fn unescape_text() {
     let (summary, description, built_calendar) = init_test_event();
-    println!("built calendar:\n{:#?}", built_calendar); // inner representation of what we built
+    println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
     println!("serialized:\n {}", &serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
-    println!("parsed again:\n{:#?}", from_parsed); // inner representation of what we built and then parsed
+    println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
 
     assert_eq!(get_summary(&from_parsed), summary);
     assert_eq!(get_description(&from_parsed), description);
@@ -97,13 +97,13 @@ fn unescape_text() {
 #[test]
 fn reparse_equivalence() {
     let (_summary, _description, built_calendar) = init_test_event();
-    println!("built calendar:\n{:#?}", built_calendar); // inner representation of what we built
+    println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
     println!("serialized: {}", &serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
-    println!("parsed again:\n{:#?}", from_parsed); // inner representation of what we built and then parsed
+    println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
 
     assert_eq!(get_summary(&built_calendar), get_summary(&from_parsed),);
 }

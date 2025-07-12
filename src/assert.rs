@@ -10,10 +10,7 @@ macro_rules! xassert_parser {
 }
 
 pub fn print_result<T: fmt::Debug>(input: &str, rest: &str, result: &T) {
-    println!(
-        "INPUT: {:?}\nLEFT:  {:?}\nRESULT: {:#?}",
-        input, rest, result
-    );
+    println!("INPUT: {input:?}\nLEFT:  {rest:?}\nRESULT: {result:#?}");
 }
 
 macro_rules! assert_parser {

@@ -61,5 +61,5 @@ fn main() {
         )
         .done();
 
-    println!("{}", my_calendar);
+    println!("{my_calendar}");
 }

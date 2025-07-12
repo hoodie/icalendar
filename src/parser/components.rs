@@ -225,7 +225,7 @@ END:VEVENT
             ]},
             ], components: vec![]};
 
-    println!("expectation: {:#?}", expectation);
+    println!("expectation: {expectation:#?}");
     println!("vs reality : {:#?}", component::<(_, ErrorKind)>(sample_1));
 
     assert_eq!(
