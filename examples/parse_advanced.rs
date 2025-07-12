@@ -10,8 +10,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // print_with_lines(&unfolded);
 
         match icalendar::parser::read_calendar(&unfolded) {
-            Ok(read) => println!("{}", read),
-            Err(error) => println!("human-readable error\n{}", error),
+            Ok(read) => println!("{read}"),
+            Err(error) => println!("human-readable error\n{error}"),
         }
     }
     Ok(())

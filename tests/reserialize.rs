@@ -47,6 +47,6 @@ fn reserialization() {
 
     let parsed = icalendar::parser::read_calendar(&unfolded).unwrap();
     let reserialized = parsed.to_string();
-    println!("{}", reserialized);
+    println!("{reserialized}");
     assert_eq!(SAMPLE, reserialized);
 }

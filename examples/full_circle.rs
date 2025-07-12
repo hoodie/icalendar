@@ -35,12 +35,12 @@ fn main() {
     // and now lets parser it again
     let from_parsed = Calendar::from_str(&ical).unwrap();
 
-    println!("{}", &ical); // print what we built
-    println!("{}", from_parsed); // print what parsed
-    println!("built calendar:\n{:#?}", built_calendar); // inner representation of what we built
-    println!("from parsed:\n{:#?}", from_parsed); // inner representation of what we built and then parsed
+    println!("{ical}"); // print what we built
+    println!("{from_parsed}"); // print what parsed
+    println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
+    println!("from parsed:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
     println!(
-        "read_calenar:\n{:#?}",
+        "read_calendar:\n{:#?}",
         parser::read_calendar(&parser::unfold(&ical)).unwrap()
     ); // inner presentation of the parser's data structure
 }

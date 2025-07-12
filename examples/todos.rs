@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .done();
 
     let calendar = dbg!(Calendar::from([groceries]));
-    println!("{}", calendar);
+    println!("{calendar}");
 
     #[cfg(feature = "parser")]
     {

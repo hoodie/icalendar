@@ -11,7 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         match icalendar::parser::read_calendar(&unfolded) {
             Ok(read) => println!("{}", serde_json::to_string_pretty(&read)?),
-            Err(error) => println!("human-readable error\n{}", error),
+            Err(error) => println!("human-readable error\n{error}"),
         }
     }
     Ok(())

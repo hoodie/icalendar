@@ -61,6 +61,6 @@ fn test_alarm_to_string() {
         use std::str::FromStr;
 
         let reparse = Calendar::from_str(&calendar.to_string()).unwrap();
-        println!("{:?}", reparse);
+        println!("{reparse:?}");
     }
 }

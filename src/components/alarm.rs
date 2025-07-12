@@ -322,7 +322,7 @@ pub mod properties {
                 Action::Audio => write!(f, "AUDIO"),
                 Action::Email => write!(f, "EMAIL"),
                 Action::Display => write!(f, "DISPLAY"),
-                Action::Other(other) => write!(f, "{}", other),
+                Action::Other(other) => write!(f, "{other}"),
             }
         }
     }
