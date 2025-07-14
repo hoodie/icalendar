@@ -1,4 +1,4 @@
-on: [push, pull_request]
+on: [push]
 
 name: Continuous Integration
 
@@ -24,7 +24,6 @@ jobs:
       - name: check all-features
         run: cargo check --all-features
 
-
   test:
     name: cargo-test ...
     runs-on: ubuntu-latest
@@ -41,17 +40,6 @@ jobs:
 
       - name: test (with TZ)
         run: cargo test --features chrono-tz
-
-  semver:
-    name: cargo-semver-checks
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-
-      - name: check semver
-        uses: obi1kenobi/cargo-semver-checks-action@v2.8
 
   fmtclippy:
     runs-on: ubuntu-latest

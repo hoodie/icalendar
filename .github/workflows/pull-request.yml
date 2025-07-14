@@ -1,20 +1,63 @@
 name: Pull request
 # This workflow is triggered on pushes to the repository.
-on: [ pull_request ]
+on: [pull_request]
 
 jobs:
   check:
     name: Check Commit Message
     runs-on: ubuntu-latest
+    outputs:
+      release_type: ${{ steps.bump_label.outputs.release_type }}
     steps:
       - uses: actions/checkout@v4
         with:
-          # A PR should not contain too many commits
-          fetch-depth: 10
+          fetch-depth: 0
       - name: Validate commit messages
+        id: commit_check
         run: |
           git show-ref
           curl -sSfL https://github.com/convco/convco/releases/latest/download/convco-ubuntu.zip | zcat > convco
           chmod +x convco
           ./convco check ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+      - name: Check Version Bump
+        id: bump_label
+        run: |
+          git log --oneline --no-merges | wc -l
+          ./convco version --bump ${{ github.event.pull_request.head.sha }}
+          ./convco version --bump --label ${{ github.event.pull_request.head.sha }}
+          CONVCO_RELEASE_LABEL=$(./convco version --bump --label ${{ github.event.pull_request.head.sha }})
+          RELEASE_TYPE=${CONVCO_RELEASE_LABEL}
+          # while we're below 1.0 `major` and `minor` are both treated like `major`
+          if [ "${RELEASE_TYPE}" = "release" ]; then
+            RELEASE_TYPE="patch"
+          elif [ "${RELEASE_TYPE}" = "minor" ]; then
+            RELEASE_TYPE="major"
+          fi
+          # patch and major remain unchanged
+          echo "mapping ${CONVCO_RELEASE_LABEL} -> \"${RELEASE_TYPE}\""
+          echo "release_type=${RELEASE_TYPE}" >> $GITHUB_OUTPUT
           rm convco
+
+  semver:
+    name: cargo-semver-checks
+    runs-on: ubuntu-latest
+    needs: check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Echo Release Type
+        run: |
+          echo "Release Type: \"${{needs.check.outputs.release_type}}\""
+
+      - name: Conventional Commit Message indicates version change
+        if: needs.check.outputs.release_type == 'major' || needs.check.outputs.release_type == 'minor' # minor is also breaking while we're below 1.0.0
+        run: |
+          echo "⚠️ Semver Check Skipped! ⚠️" >> $GITHUB_STEP_SUMMARY
+          echo "This PR contains intentional breaking changes (detected as '${{ needs.check.outputs.release_type }}')" >> $GITHUB_STEP_SUMMARY
+
+      - name: check semver
+        uses: obi1kenobi/cargo-semver-checks-action@v2.8
+        with:
+          release-type: ${{ needs.check.outputs.release_type  }}
