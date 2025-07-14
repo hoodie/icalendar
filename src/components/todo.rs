@@ -14,6 +14,11 @@ impl Todo {
         Default::default()
     }
 
+    /// Creates a new Event with a UID.
+    pub fn with_uid(uid: &str) -> Self {
+        Self::new().uid(uid).done()
+    }
+
     /// End of builder pattern.
     /// copies over everything
     pub fn done(&mut self) -> Self {
