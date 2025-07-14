@@ -1,4 +1,4 @@
-on: [push, pull_request]
+on: [push]
 
 name: Continuous Integration
 
@@ -23,7 +23,6 @@ jobs:
 
       - name: check all-features
         run: cargo check --all-features
-
 
   test:
     name: cargo-test ...
