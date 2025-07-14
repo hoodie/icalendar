@@ -81,6 +81,39 @@ println!("{}", my_calendar);
 
 ```
 
+### Removing Properties from Components
+
+You can remove properties from components when you need to update their state:
+
+```rust
+use icalendar::{Calendar, Component, Event, EventStatus, Todo, TodoStatus};
+use chrono::Utc;
+
+// Create a completed todo
+let mut todo = Todo::new()
+    .summary("Buy milk")
+    .completed(Utc::now())
+    .percent_complete(100)
+    .status(TodoStatus::Completed)
+    .done();
+
+// Later, mark it as uncompleted by removing completion properties
+todo.mark_uncompleted();
+// This removes COMPLETED, PERCENT-COMPLETE, and STATUS properties
+
+// For events, you can remove specific properties
+let mut event = Event::new()
+    .summary("Team Meeting")
+    .status(EventStatus::Cancelled)
+    .done();
+
+// Remove the cancelled status
+event.remove_status();
+
+// You can also remove any property directly
+event.remove_property("LOCATION");
+```
+
 ### Parsing a Calendar
 There is a feature called `"parser"` which allows you to read calendars again like this:
 
