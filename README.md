@@ -2,9 +2,9 @@
 
 # iCalendar in Rust
 
-[![build](https://img.shields.io/github/actions/workflow/status/hoodie/icalendar-rs/ci.yml?branch=main)](https://github.com/hoodie/icalendar-rs/actions?query=workflow%3A"Continuous+Integration")
+[![build](https://img.shields.io/github/actions/workflow/status/hoodie/icalendar/ci.yml?branch=main)](https://github.com/hoodie/icalendar/actions?query=workflow%3A"Continuous+Integration")
 [![Crates.io](https://img.shields.io/crates/d/icalendar)](https://crates.io/crates/icalendar)
-[![contributors](https://img.shields.io/github/contributors/hoodie/icalendar-rs)](https://github.com/hoodie/icalendar-rs/graphs/contributors)
+[![contributors](https://img.shields.io/github/contributors/hoodie/icalendar)](https://github.com/hoodie/icalendar/graphs/contributors)
 ![maintenance](https://img.shields.io/maintenance/yes/2025)
 
 [![version](https://img.shields.io/crates/v/icalendar)](https://crates.io/crates/icalendar/)
@@ -106,7 +106,7 @@ A [`Calendar`] represents a full calendar, which contains multiple [`Component`]
 
 ## License
 
-icalendar-rs is licensed under either of
+Icalendar (this crate) is licensed under either of
 
 * Apache License, Version 2.0, (LICENSE-APACHE or <http://www.apache.org/licenses/LICENSE-2.0>)
 * MIT license (LICENSE-MIT or <http://opensource.org/licenses/MIT>)
@@ -115,6 +115,6 @@ at your option.
 
 ## Contribution
 
-Any help in form of descriptive and friendly [issues](https://github.com/hoodie/icalendar-rs/issues) or comprehensive pull requests are welcome!
+Any help in form of descriptive and friendly [issues](https://github.com/hoodie/icalendar/issues) or comprehensive pull requests are welcome!
 
-Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in icalendar-rs by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in icalendar by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.

@@ -388,7 +388,7 @@ mod tests {
 
         pretty_assertions::assert_eq!(parsed.property_value("FOOBAR"), Some("foobar"));
 
-        // this would not pass because icalendar-rs adds certain properties like CALSCALE or PRODID
+        // this would not pass because icalendar adds certain properties like CALSCALE or PRODID
         // pretty_assertions::assert_eq!(parsed, original)
     }
 }

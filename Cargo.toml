@@ -10,7 +10,7 @@ keywords = ["ical", "icalendar", "parser", "RFC5545", "RFC7986"]
 categories = ["date-and-time", "data-structures", "parsing"]
 
 documentation = "https://docs.rs/icalendar/"
-repository = "https://github.com/hoodie/icalendar-rs"
+repository = "https://github.com/hoodie/icalendar"
 readme = "README.md"
 
 rust-version = "1.60"
