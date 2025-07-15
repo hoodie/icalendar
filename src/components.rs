@@ -283,16 +283,16 @@ pub trait Component {
         self.property_value("URL")
     }
 
-    /// Set the [`LAST_MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) [`Property`]
+    /// Set the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) [`Property`]
     ///
     /// This must be a UTC date-time value.
     fn last_modified(&mut self, dt: DateTime<Utc>) -> &mut Self {
-        self.add_property("LAST_MODIFIED", format_utc_date_time(dt))
+        self.add_property("LAST-MODIFIED", format_utc_date_time(dt))
     }
 
-    /// Gets the [`LAST_MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) property.
+    /// Gets the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) property.
     fn get_last_modified(&self) -> Option<DateTime<Utc>> {
-        parse_utc_date_time(self.property_value("LAST_MODIFIED")?)
+        parse_utc_date_time(self.property_value("LAST-MODIFIED")?)
     }
 
     /// Set the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) [`Property`]
