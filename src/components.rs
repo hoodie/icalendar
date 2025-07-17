@@ -177,6 +177,11 @@ pub trait Component {
         DatePerhapsTime::from_property(self.properties().get("DTSTART")?)
     }
 
+    /// Gets the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4) property.
+    fn get_recurrence_id(&self) -> Option<DatePerhapsTime> {
+        DatePerhapsTime::from_property(self.properties().get("RECURRENCE-ID")?)
+    }
+
     /// Gets the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
     fn get_end(&self) -> Option<DatePerhapsTime> {
         DatePerhapsTime::from_property(self.properties().get("DTEND")?)
@@ -324,6 +329,15 @@ pub trait EventLike: Component {
     fn ends<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt = dt.into();
         self.append_property(calendar_dt.to_property("DTEND"))
+    }
+
+    /// Sets the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
+    /// property.
+    ///
+    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
+    fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
+        let calendar_dt = dt.into();
+        self.append_property(calendar_dt.to_property("RECURRENCE-ID"))
     }
 
     /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
