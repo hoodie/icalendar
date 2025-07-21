@@ -1,5 +1,25 @@
 # Changelog
 
+## [v0.17.0](https://github.com/hoodie/icalendar-rs/compare/v0.16.17...v0.17.0) (2025-07-21)
+
+### ⚠ BREAKING CHANGE
+
+* (soft) adding two methods to the `EventLike` trait that hopefully nobody implements themselves
+
+
+### Features
+
+* add mark_uncompleted() helper
+([aa37179](https://github.com/hoodie/icalendar-rs/commit/aa37179a13bda57b962e4ddcd8217443ae4668cb))
+* add calendar component iterator helpers
+([c229cd5](https://github.com/hoodie/icalendar-rs/commit/c229cd5ab4363caa06138ed100f06bbcbb84a690))
+* add with_uid() constructor to Event, Todo and Venue
+([5d5b377](https://github.com/hoodie/icalendar-rs/commit/5d5b3775356c9c26eb7370d07f0bfbdb8f84a17f))
+* remove need to call .done() on all props and components when building
+([6032fec](https://github.com/hoodie/icalendar-rs/commit/6032fecd253bdb62808d92b47d3a4ff48afde315))
+* add remove_property and remove_multi_property methods
+([f76f50d](https://github.com/hoodie/icalendar-rs/commit/f76f50ddaf76d92678f8b100ad07e8c4e7b77394))
+
 ### [v0.16.17](https://github.com/hoodie/icalendar-rs/compare/v0.16.16...v0.16.17) (2025-07-21)
 
 #### Features
