@@ -57,6 +57,12 @@ impl From<(&str, &str)> for Property {
     }
 }
 
+impl From<&mut Property> for Property {
+    fn from(val: &mut Property) -> Self {
+        val.to_owned()
+    }
+}
+
 impl Property {
     /// Guess what this does :D
     pub fn new(key: impl Into<String>, val: impl Into<String>) -> Self {
