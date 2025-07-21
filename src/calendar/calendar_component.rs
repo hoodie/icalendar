@@ -38,9 +38,33 @@ impl From<Event> for CalendarComponent {
     }
 }
 
+impl From<&Event> for CalendarComponent {
+    fn from(val: &Event) -> Self {
+        CalendarComponent::Event(val.to_owned())
+    }
+}
+
+impl From<&mut Event> for CalendarComponent {
+    fn from(val: &mut Event) -> Self {
+        CalendarComponent::Event(val.to_owned())
+    }
+}
+
 impl From<Todo> for CalendarComponent {
     fn from(val: Todo) -> Self {
         CalendarComponent::Todo(val)
+    }
+}
+
+impl From<&Todo> for CalendarComponent {
+    fn from(val: &Todo) -> Self {
+        CalendarComponent::Todo(val.to_owned())
+    }
+}
+
+impl From<&mut Todo> for CalendarComponent {
+    fn from(val: &mut Todo) -> Self {
+        CalendarComponent::Todo(val.to_owned())
     }
 }
 
@@ -50,9 +74,33 @@ impl From<Venue> for CalendarComponent {
     }
 }
 
+impl From<&Venue> for CalendarComponent {
+    fn from(val: &Venue) -> Self {
+        CalendarComponent::Venue(val.to_owned())
+    }
+}
+
+impl From<&mut Venue> for CalendarComponent {
+    fn from(val: &mut Venue) -> Self {
+        CalendarComponent::Venue(val.to_owned())
+    }
+}
+
 impl From<Other> for CalendarComponent {
     fn from(val: Other) -> Self {
         CalendarComponent::Other(val)
+    }
+}
+
+impl From<&Other> for CalendarComponent {
+    fn from(val: &Other) -> Self {
+        CalendarComponent::Other(val.to_owned())
+    }
+}
+
+impl From<&mut Other> for CalendarComponent {
+    fn from(val: &mut Other) -> Self {
+        CalendarComponent::Other(val.to_owned())
     }
 }
 

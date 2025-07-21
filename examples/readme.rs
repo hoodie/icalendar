@@ -18,25 +18,21 @@ fn main() {
                 .append_property(
                     Property::new("TEST", "FOOBAR")
                         .add_parameter("IMPORTANCE", "very")
-                        .add_parameter("DUE", "tomorrow")
-                        .done(),
-                )
-                .done(),
+                        .add_parameter("DUE", "tomorrow"),
+                ),
         )
         .push(
             // add a todo
             Todo::new()
                 .summary("groceries")
-                .description("Buy some milk")
-                .done(),
+                .description("Buy some milk"),
         )
         .push(
             // add an all-day event
             Event::new()
                 .all_day(NaiveDate::from_ymd_opt(2016, 3, 15).unwrap())
                 .summary("My Birthday")
-                .description("Hey, I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik")
-                .done(),
+                .description("Hey, I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik"),
         )
         .push(
             // local event with timezone
@@ -56,8 +52,7 @@ fn main() {
                     }
                 })
                 .summary("Birthday Party")
-                .description("I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik")
-                .done(),
+                .description("I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik"),
         )
         .done();
 
