@@ -118,3 +118,9 @@ at your option.
 Any help in form of descriptive and friendly [issues](https://github.com/hoodie/icalendar/issues) or comprehensive pull requests are welcome!
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in icalendar by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+Thanks goes to these wonderful people:
+
+ <a href="https://github.com/hoodie/icalendar/graphs/contributors">
+   <img src="https://contrib.rocks/image?repo=hoodie/icalendar" />
+ </a>
