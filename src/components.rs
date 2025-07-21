@@ -149,6 +149,12 @@ pub trait Component {
         self.append_property(Property::new(key, val))
     }
 
+    /// Remove a property by its key
+    fn remove_property(&mut self, key: &str) -> &mut Self;
+
+    /// Remove a multi-property by its key
+    fn remove_multi_property(&mut self, key: &str) -> &mut Self;
+
     #[deprecated]
     /// Construct and append a [`Property`]
     fn add_property_pre_alloc(&mut self, key: String, val: String) -> &mut Self {
@@ -418,6 +424,7 @@ macro_rules! component_impl {
                 self
             }
 
+            /// Appends a [`Component`]
             fn append_component(&mut self, child: impl Into<Other>) -> &mut Self {
                 self.inner.components.push(child.into());
                 self
@@ -426,6 +433,18 @@ macro_rules! component_impl {
             /// Adds a [`Property`] of which there may be many
             fn append_multi_property(&mut self, property: impl Into<Property>) -> &mut Self {
                 self.inner.insert_multi(property);
+                self
+            }
+
+            /// Removes a [`Property`] by its key if it exists
+            fn remove_property(&mut self, key: &str) -> &mut Self {
+                self.inner.properties.remove(key);
+                self
+            }
+
+            /// Removes a multi-property by its key if it exists
+            fn remove_multi_property(&mut self, key: &str) -> &mut Self {
+                self.inner.multi_properties.remove(key);
                 self
             }
         }
