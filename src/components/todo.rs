@@ -14,6 +14,11 @@ impl Todo {
         Default::default()
     }
 
+    /// Creates a new Event with a UID.
+    pub fn with_uid(uid: &str) -> Self {
+        Self::new().uid(uid).done()
+    }
+
     /// End of builder pattern.
     /// copies over everything
     pub fn done(&mut self) -> Self {
@@ -79,6 +84,39 @@ impl Todo {
     //pub fn repeats<R:Repeater+?Sized>(&mut self, repeat: R) -> &mut Self {
     //    unimplemented!()
     //}
+
+    /// Mark a todo as uncompleted by removing completion-related properties.
+    ///
+    /// This removes the following properties:
+    /// - COMPLETED: The timestamp when the task was completed
+    /// - PERCENT-COMPLETE: The percentage of the task that has been completed
+    /// - STATUS: The task status, if it was set to "COMPLETED"
+    ///
+    /// # Example
+    /// ```
+    /// use icalendar::{Todo, Component, TodoStatus};
+    /// use chrono::Utc;
+    ///
+    /// let mut todo = Todo::new()
+    ///     .completed(Utc::now())
+    ///     .percent_complete(100)
+    ///     .status(TodoStatus::Completed)
+    ///     .done();
+    ///
+    /// // Later, when marking the task as uncompleted:
+    /// todo.mark_uncompleted();
+    /// ```
+    pub fn mark_uncompleted(&mut self) -> &mut Self {
+        self.remove_property("COMPLETED")
+            .remove_property("PERCENT-COMPLETE");
+
+        // Only remove STATUS if it's set to COMPLETED
+        if let Some(TodoStatus::Completed) = self.get_status() {
+            self.remove_property("STATUS");
+        }
+
+        self
+    }
 }
 
 #[cfg(test)]
@@ -133,5 +171,30 @@ mod tests {
         let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
         let todo = Todo::new().due(naive_date).done();
         assert_eq!(todo.get_due(), Some(naive_date.into()));
+    }
+
+    #[test]
+    fn test_mark_uncompleted() {
+        let completed = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+
+        // Create a completed todo
+        let mut todo = Todo::new()
+            .percent_complete(100)
+            .status(TodoStatus::Completed)
+            .completed(completed)
+            .done();
+
+        // Verify completed state
+        assert_eq!(todo.get_percent_complete(), Some(100));
+        assert_eq!(todo.get_status(), Some(TodoStatus::Completed));
+        assert_eq!(todo.get_completed(), Some(completed));
+
+        // Mark as uncompleted
+        todo.mark_uncompleted();
+
+        // Verify uncompleted state
+        assert_eq!(todo.get_percent_complete(), None);
+        assert_eq!(todo.get_status(), None);
+        assert_eq!(todo.get_completed(), None);
     }
 }
