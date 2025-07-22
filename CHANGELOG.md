@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.1](https://github.com/hoodie/icalendar-rs/compare/v0.17.0...v0.17.1) (2025-07-23)
+
+#### Features
+
+* add remove_xxx method for optional properties
+([68d930d](https://github.com/hoodie/icalendar-rs/commit/68d930dd274302e360b76e1a01c427e2d40d8c09))
+
 ## [v0.17.0](https://github.com/hoodie/icalendar-rs/compare/v0.16.17...v0.17.0) (2025-07-21)
 
 ### ⚠ BREAKING CHANGE
