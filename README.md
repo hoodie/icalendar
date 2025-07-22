@@ -44,16 +44,13 @@ let my_calendar = Calendar::new()
                 Property::new("TEST", "FOOBAR")
                     .add_parameter("IMPORTANCE", "very")
                     .add_parameter("DUE", "tomorrow")
-                    .done(),
             )
-            .done(),
     )
     .push(
         // add a todo
         Todo::new()
             .summary("groceries")
             .description("Buy some milk")
-            .done(),
     )
     .push(
         // add an all-day event
@@ -61,7 +58,6 @@ let my_calendar = Calendar::new()
             .all_day(NaiveDate::from_ymd_opt(2016, 3, 15).unwrap())
             .summary("My Birthday")
             .description("Hey, I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik")
-            .done(),
     )
     .push(
         // event with utc timezone
@@ -73,7 +69,6 @@ let my_calendar = Calendar::new()
             ))
             .summary("Birthday Party")
             .description("I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik")
-            .done(),
     )
     .done();
 
@@ -90,22 +85,22 @@ use icalendar::{Calendar, Component, Event, EventStatus, Todo, TodoStatus};
 use chrono::Utc;
 
 // Create a completed todo
-let mut todo = Todo::new()
+let mut todo = Todo::new();
+todo
     .summary("Buy milk")
     .completed(Utc::now())
     .percent_complete(100)
-    .status(TodoStatus::Completed)
-    .done();
+    .status(TodoStatus::Completed);
 
 // Later, mark it as uncompleted by removing completion properties
 todo.mark_uncompleted();
 // This removes COMPLETED, PERCENT-COMPLETE, and STATUS properties
 
 // For events, you can remove specific properties
-let mut event = Event::new()
+let mut event = Event::new();
+event
     .summary("Team Meeting")
-    .status(EventStatus::Cancelled)
-    .done();
+    .status(EventStatus::Cancelled);
 
 // Remove the cancelled status
 event.remove_status();
