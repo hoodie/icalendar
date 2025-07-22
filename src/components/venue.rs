@@ -32,6 +32,11 @@ impl Venue {
         self.add_property("STREET-ADDRESS", address)
     }
 
+    /// Removes the value of the STREET-ADDRESS `Property`.
+    pub fn remove_street_address(&mut self) -> &mut Self {
+        self.remove_property("STREET-ADDRESS")
+    }
+
     /// Gets the value of the STREET-ADDRESS `Property`.
     pub fn get_street_address(&self) -> Option<&str> {
         self.property_value("STREET-ADDRESS")
@@ -47,6 +52,11 @@ impl Venue {
         self.add_property("EXTENDED-ADDRESS", address)
     }
 
+    /// Removes the EXTENDED-ADDRESS `Property`
+    pub fn remove_extended_address(&mut self) -> &mut Self {
+        self.remove_property("EXTENDED-ADDRESS")
+    }
+
     /// Gets the value of the EXTENDED-ADDRESS `Property`.
     pub fn get_extended_address(&self) -> Option<&str> {
         self.property_value("EXTENDED-ADDRESS")
@@ -57,6 +67,11 @@ impl Venue {
     /// This specifies the city or locality of a venue.
     pub fn locality(&mut self, locality: &str) -> &mut Self {
         self.add_property("LOCALITY", locality)
+    }
+
+    /// Removes the LOCALITY `Property`
+    pub fn remove_locality(&mut self) -> &mut Self {
+        self.remove_property("LOCALITY")
     }
 
     /// Gets the value of the LOCALITY `Property`.
@@ -71,6 +86,11 @@ impl Venue {
         self.add_property("REGION", region)
     }
 
+    /// Removes the REGION `Property`
+    pub fn remove_region(&mut self) -> &mut Self {
+        self.remove_property("REGION")
+    }
+
     /// Gets the value of the REGION `Property`.
     pub fn get_region(&self) -> Option<&str> {
         self.property_value("REGION")
@@ -83,6 +103,11 @@ impl Venue {
         self.add_property("COUNTRY", country)
     }
 
+    /// Removes the COUNTRY `Property`
+    pub fn remove_country(&mut self) -> &mut Self {
+        self.remove_property("COUNTRY")
+    }
+
     /// Gets the value of the COUNTRY `Property`.
     pub fn get_country(&self) -> Option<&str> {
         self.property_value("COUNTRY")
@@ -93,6 +118,11 @@ impl Venue {
     /// This specifies the postal code of a location.
     pub fn postal_code(&mut self, postal_code: &str) -> &mut Self {
         self.add_property("POSTAL-CODE", postal_code)
+    }
+
+    /// Removes the POSTAL-CODE `Property`
+    pub fn remove_postal_code(&mut self) -> &mut Self {
+        self.remove_property("POSTAL-CODE")
     }
 
     /// Gets the value of the POSTAL-CODE `Property`.
@@ -132,5 +162,37 @@ mod tests {
         assert_eq!(venue.get_region(), Some("region"));
         assert_eq!(venue.get_country(), Some("country"));
         assert_eq!(venue.get_postal_code(), Some("postal code"));
+    }
+
+    #[test]
+    fn get_properties_remove() {
+        let mut venue = Venue::new()
+            .street_address("street address")
+            .extended_address("extended address")
+            .locality("locality")
+            .region("region")
+            .country("country")
+            .postal_code("postal code")
+            .done();
+        assert_eq!(venue.get_street_address(), Some("street address"));
+        assert_eq!(venue.get_extended_address(), Some("extended address"));
+        assert_eq!(venue.get_locality(), Some("locality"));
+        assert_eq!(venue.get_region(), Some("region"));
+        assert_eq!(venue.get_country(), Some("country"));
+        assert_eq!(venue.get_postal_code(), Some("postal code"));
+
+        venue
+            .remove_street_address()
+            .remove_extended_address()
+            .remove_locality()
+            .remove_region()
+            .remove_country()
+            .remove_postal_code();
+        assert_eq!(venue.get_street_address(), None);
+        assert_eq!(venue.get_extended_address(), None);
+        assert_eq!(venue.get_locality(), None);
+        assert_eq!(venue.get_region(), None);
+        assert_eq!(venue.get_country(), None);
+        assert_eq!(venue.get_postal_code(), None);
     }
 }

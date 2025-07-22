@@ -173,6 +173,11 @@ pub trait Component {
         self.add_property("DTSTAMP", format_utc_date_time(dt))
     }
 
+    /// Remove the [`DTSTAMP`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2) [`Property`]
+    fn remove_timestamp(&mut self) -> &mut Self {
+        self.remove_property("DTSTAMP")
+    }
+
     /// Gets the [`DTSTAMP`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2) property.
     fn get_timestamp(&self) -> Option<DateTime<Utc>> {
         parse_utc_date_time(self.property_value("DTSTAMP")?)
@@ -199,6 +204,11 @@ pub trait Component {
     fn priority(&mut self, priority: u32) -> &mut Self {
         let priority = std::cmp::min(priority, 10);
         self.add_property("PRIORITY", priority.to_string())
+    }
+
+    /// Removes the relative priority.
+    fn remove_priority(&mut self) -> &mut Self {
+        self.remove_property("PRIORITY")
     }
 
     // /// Add the [`ATTACH`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.1) property
@@ -233,6 +243,11 @@ pub trait Component {
         self.add_property("SUMMARY", desc)
     }
 
+    /// Removes the summary
+    fn remove_summary(&mut self) -> &mut Self {
+        self.remove_property("SUMMARY")
+    }
+
     /// Gets the summary
     fn get_summary(&self) -> Option<&str> {
         self.property_value("SUMMARY")
@@ -241,6 +256,11 @@ pub trait Component {
     /// Set the description
     fn description(&mut self, desc: &str) -> &mut Self {
         self.add_property("DESCRIPTION", desc)
+    }
+
+    /// Removes the description
+    fn remove_description(&mut self) -> &mut Self {
+        self.remove_property("DESCRIPTION")
     }
 
     /// Gets the description
@@ -269,7 +289,12 @@ pub trait Component {
         self.add_property("SEQUENCE", sequence.to_string())
     }
 
-    /// Gets the SEQUENCE
+    /// Removes the sequence
+    fn remove_sequence(&mut self) -> &mut Self {
+        self.remove_property("SEQUENCE")
+    }
+
+    /// Gets the sequence
     fn get_sequence(&self) -> Option<u32> {
         self.property_value("SEQUENCE").and_then(|s| s.parse().ok())
     }
@@ -277,6 +302,11 @@ pub trait Component {
     /// Set the visibility class
     fn class(&mut self, class: Class) -> &mut Self {
         self.append_property(class)
+    }
+
+    /// Removes the visibility class
+    fn remove_class(&mut self) -> &mut Self {
+        self.remove_property("CLASS")
     }
 
     /// Gets the visibility class
@@ -287,6 +317,11 @@ pub trait Component {
     /// Sets the URL.
     fn url(&mut self, url: &str) -> &mut Self {
         self.add_property("URL", url)
+    }
+
+    /// Removes the URL.
+    fn remove_url(&mut self) -> &mut Self {
+        self.remove_property("URL")
     }
 
     /// Gets the URL.
@@ -301,6 +336,11 @@ pub trait Component {
         self.add_property("LAST-MODIFIED", format_utc_date_time(dt))
     }
 
+    /// Removes the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) [`Property`]
+    fn remove_last_modified(&mut self) -> &mut Self {
+        self.remove_property("LAST-MODIFIED")
+    }
+
     /// Gets the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) property.
     fn get_last_modified(&self) -> Option<DateTime<Utc>> {
         parse_utc_date_time(self.property_value("LAST-MODIFIED")?)
@@ -311,6 +351,11 @@ pub trait Component {
     /// This must be a UTC date-time value.
     fn created(&mut self, dt: DateTime<Utc>) -> &mut Self {
         self.add_property("CREATED", format_utc_date_time(dt))
+    }
+
+    /// Removes the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) [`Property`]
+    fn remove_created(&mut self) -> &mut Self {
+        self.remove_property("CREATED")
     }
 
     /// Gets the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) property.
@@ -329,12 +374,22 @@ pub trait EventLike: Component {
         self.append_property(calendar_dt.to_property("DTSTART"))
     }
 
+    /// removes the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
+    fn remove_starts(&mut self) -> &mut Self {
+        self.remove_property("DTSTART")
+    }
+
     /// Set the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
     ///
     /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
     fn ends<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt = dt.into();
         self.append_property(calendar_dt.to_property("DTEND"))
+    }
+
+    /// Removes the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
+    fn remove_ends(&mut self) -> &mut Self {
+        self.remove_property("DTEND")
     }
 
     /// Sets the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
@@ -344,6 +399,11 @@ pub trait EventLike: Component {
     fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt = dt.into();
         self.append_property(calendar_dt.to_property("RECURRENCE-ID"))
+    }
+
+    /// Removes the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
+    fn remove_recurrence_id(&mut self) -> &mut Self {
+        self.remove_property("RECURRENCE-ID")
     }
 
     /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
@@ -369,6 +429,11 @@ pub trait EventLike: Component {
     /// 3.8.1.7.  Location
     fn location(&mut self, location: &str) -> &mut Self {
         self.add_property("LOCATION", location)
+    }
+
+    /// Removes the LOCATION with a VVENUE UID
+    fn remove_location(&mut self) -> &mut Self {
+        self.remove_property("LOCATION")
     }
 
     /// Gets the location
@@ -531,6 +596,40 @@ mod tests {
         assert_eq!(event.get_uid(), Some("uid"));
         assert_eq!(event.get_class(), Some(Class::Private));
         assert_eq!(event.get_url(), Some("http://some.test/url"));
+    }
+
+    #[test]
+    fn get_properties_remove() {
+        let mut event = Event::new()
+            .priority(5)
+            .summary("summary")
+            .description("description")
+            .location("location")
+            .uid("uid")
+            .class(Class::Private)
+            .url("http://some.test/url")
+            .done();
+        assert_eq!(event.get_priority(), Some(5));
+        assert_eq!(event.get_summary(), Some("summary"));
+        assert_eq!(event.get_description(), Some("description"));
+        assert_eq!(event.get_location(), Some("location"));
+        assert_eq!(event.get_uid(), Some("uid"));
+        assert_eq!(event.get_class(), Some(Class::Private));
+        assert_eq!(event.get_url(), Some("http://some.test/url"));
+
+        event
+            .remove_priority()
+            .remove_summary()
+            .remove_description()
+            .remove_location()
+            .remove_class()
+            .remove_url();
+        assert_eq!(event.get_priority(), None);
+        assert_eq!(event.get_summary(), None);
+        assert_eq!(event.get_description(), None);
+        assert_eq!(event.get_location(), None);
+        assert_eq!(event.get_class(), None);
+        assert_eq!(event.get_url(), None);
     }
 
     #[test]

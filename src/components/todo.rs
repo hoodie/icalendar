@@ -34,6 +34,11 @@ impl Todo {
         self.add_property("PERCENT-COMPLETE", percent.to_string())
     }
 
+    /// Removes the [`PERCENT-COMPLETE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.8) property.
+    pub fn remove_percent_complete(&mut self) -> &mut Self {
+        self.remove_property("PERCENT-COMPLETE")
+    }
+
     /// Gets the [`PERCENT-COMPLETE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.8) property.
     ///
     /// Ranges between 0 - 100.
@@ -49,6 +54,11 @@ impl Todo {
         self.append_property(calendar_dt.to_property("DUE"))
     }
 
+    /// Removes the [`DUE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.3) property
+    pub fn remove_due(&mut self) -> &mut Self {
+        self.remove_property("DUE")
+    }
+
     /// Gets the [`DUE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.3) property
     pub fn get_due(&self) -> Option<DatePerhapsTime> {
         DatePerhapsTime::from_property(self.properties().get("DUE")?)
@@ -60,6 +70,11 @@ impl Todo {
     /// must be a date-time in UTC format.
     pub fn completed(&mut self, dt: DateTime<Utc>) -> &mut Self {
         self.add_property("COMPLETED", format_utc_date_time(dt))
+    }
+
+    /// Removes the [`COMPLETED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.1) property
+    pub fn remove_completed(&mut self) -> &mut Self {
+        self.remove_property("COMPLETED")
     }
 
     /// Gets the [`COMPLETED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.1) property
@@ -74,6 +89,11 @@ impl Todo {
     /// Defines the overall status or confirmation
     pub fn status(&mut self, status: TodoStatus) -> &mut Self {
         self.append_property(status)
+    }
+
+    /// Removes the overall status
+    pub fn remove_status(&mut self) -> &mut Self {
+        self.remove_property("STATUS")
     }
 
     /// Gets the overall status.
@@ -143,6 +163,26 @@ mod tests {
         assert_eq!(todo.get_percent_complete(), Some(42));
         assert_eq!(todo.get_status(), Some(TodoStatus::NeedsAction));
         assert_eq!(todo.get_completed(), Some(completed))
+    }
+
+    #[test]
+    fn get_properties_remove() {
+        let completed = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let mut todo = Todo::new()
+            .percent_complete(42)
+            .status(TodoStatus::NeedsAction)
+            .completed(completed)
+            .done();
+        assert_eq!(todo.get_percent_complete(), Some(42));
+        assert_eq!(todo.get_status(), Some(TodoStatus::NeedsAction));
+        assert_eq!(todo.get_completed(), Some(completed));
+
+        todo.remove_percent_complete()
+            .remove_status()
+            .remove_completed();
+        assert_eq!(todo.get_percent_complete(), None);
+        assert_eq!(todo.get_status(), None);
+        assert_eq!(todo.get_completed(), None);
     }
 
     #[test]
