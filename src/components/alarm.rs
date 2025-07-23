@@ -409,7 +409,7 @@ pub mod properties {
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum Trigger {
         /// Duration in relation to either Start or End of the event
-        Duration(Duration, Option<Related>),
+        Duration(/*std::time::*/Duration, Option<Related>),
         /// Absolute `DateTime` of the Trigger
         DateTime(CalendarDateTime),
     }
@@ -494,6 +494,12 @@ pub mod properties {
 
     impl From<Duration> for Trigger {
         fn from(duration: Duration) -> Self {
+            Trigger::Duration(duration.into(), None)
+        }
+    }
+
+    impl From<jiff::Span> for Trigger {
+        fn from(duration: jiff::Span) -> Self {
             Trigger::Duration(duration, None)
         }
     }

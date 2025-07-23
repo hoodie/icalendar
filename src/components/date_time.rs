@@ -313,6 +313,17 @@ impl From<CalendarDateTime> for DatePerhapsTime {
     }
 }
 
+#[cfg(feature = "jiff")]
+impl From<jiff::Zoned> for DatePerhapsTime {
+    fn from(value: jiff::Zoned) -> Self {
+        CalendarDateTime::WithTimezone {
+            date_time: todo!(),
+            tzid: todo!(),
+        }
+        .into()
+    }
+}
+
 impl From<DateTime<Utc>> for DatePerhapsTime {
     fn from(dt: DateTime<Utc>) -> Self {
         Self::DateTime(CalendarDateTime::Utc(dt))
