@@ -242,7 +242,7 @@ fn test_audio() {
     assert_eq!(alarm.get_action(), Some(Action::Audio));
     assert_eq!(
         alarm.get_trigger(),
-        Some(Trigger::Duration(
+        Some(Trigger::duration(
             Duration::minutes(15),
             Related::Start.into()
         ))
@@ -282,7 +282,7 @@ fn test_email() {
 
 pub mod properties {
 
-    use crate::components::date_time::parse_duration;
+    use crate::components::date_time::{parse_duration, CalendarDuration};
 
     use super::*;
 
@@ -409,7 +409,7 @@ pub mod properties {
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub enum Trigger {
         /// Duration in relation to either Start or End of the event
-        Duration(std::time::Duration, Option<Related>),
+        Duration(CalendarDuration, Option<Related>),
         /// Absolute `DateTime` of the Trigger
         DateTime(CalendarDateTime),
     }
@@ -424,8 +424,8 @@ pub mod properties {
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
-        pub fn after_start(duration: Duration) -> Trigger {
-            Trigger::Duration(duration, Some(Related::Start))
+        pub fn after_start(duration: impl Into<CalendarDuration>) -> Trigger {
+            Trigger::Duration(duration.into(), Some(Related::Start))
         }
 
         /// ```
@@ -437,8 +437,8 @@ pub mod properties {
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
-        pub fn after_end(duration: Duration) -> Trigger {
-            Trigger::Duration(duration, Some(Related::End))
+        pub fn after_end(duration: impl Into<CalendarDuration>) -> Trigger {
+            Trigger::Duration(duration.into(), Some(Related::End))
         }
 
         /// ```
@@ -450,8 +450,8 @@ pub mod properties {
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
-        pub fn before_start(duration: Duration) -> Trigger {
-            Trigger::Duration(-duration, Some(Related::Start))
+        pub fn before_start(duration: impl Into<CalendarDuration>) -> Trigger {
+            Trigger::duration(-duration, Some(Related::Start))
         }
 
         /// ```
@@ -464,7 +464,7 @@ pub mod properties {
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
         pub fn before_end(duration: Duration) -> Trigger {
-            Trigger::Duration(-duration, Some(Related::End))
+            Trigger::duration(-duration, Some(Related::End))
         }
 
         /// Returns the containing [`Related`] if the [`Trigger`] contains one
@@ -478,7 +478,7 @@ pub mod properties {
         /// Returns the containing [`Duration`] if the [`Trigger`] contains one
         pub fn as_duration(&self) -> Option<&Duration> {
             match self {
-                Trigger::Duration(duration, _) => Some(duration),
+                Trigger::duration(duration, _) => Some(duration),
                 Trigger::DateTime(_) => None,
             }
         }
@@ -494,7 +494,7 @@ pub mod properties {
 
     impl From<Duration> for Trigger {
         fn from(duration: Duration) -> Self {
-            Trigger::Duration(duration.into(), None)
+            Trigger::duration(duration, None)
         }
     }
 

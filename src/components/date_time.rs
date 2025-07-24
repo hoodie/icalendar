@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, TimeZone as _, Utc};
+use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone as _, Utc};
 
 use crate::{Property, ValueType};
 
@@ -21,10 +21,11 @@ pub(crate) fn format_utc_date_time(utc_dt: DateTime<Utc>) -> String {
     utc_dt.format(UTC_DATE_TIME_FORMAT).to_string()
 }
 
-pub(crate) fn parse_duration(s: &str) -> Option<Duration> {
+pub(crate) fn parse_duration(s: &str) -> Option<CalendarDuration> {
     iso8601::duration(s)
+        .map(Into::into)
+        .map(CalendarDuration)
         .ok()
-        .and_then(|iso| Duration::from_std(iso.into()).ok())
 }
 
 pub(crate) fn naive_date_to_property(date: NaiveDate, key: &str) -> Property {
@@ -508,6 +509,19 @@ impl TryFrom<&crate::parser::Property<'_>> for DatePerhapsTime {
         };
 
         Err("Value does not look like a known DATE-TIME")
+    }
+}
+
+pub struct CalendarDuration(std::time::Duration);
+
+impl From<chrono::Duration> for CalendarDuration {
+    fn from(value: chrono::Duration) -> Self {
+        Self(value.to_std().unwrap())
+    }
+}
+impl From<std::time::Duration> for CalendarDuration {
+    fn from(value: std::time::Duration) -> Self {
+        Self(value)
     }
 }
 
