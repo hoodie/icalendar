@@ -19,14 +19,14 @@ impl CalendarComponent {
     /// Attempt to access the containted [`Event`], if it is one
     pub fn as_event(&self) -> Option<&Event> {
         match self {
-            Self::Event(ref event) => Some(event),
+            Self::Event(event) => Some(event),
             _ => None,
         }
     }
     /// Attempt to access the containted [`Todo`], if it is one
     pub fn as_todo(&self) -> Option<&Todo> {
         match self {
-            Self::Todo(ref todo) => Some(todo),
+            Self::Todo(todo) => Some(todo),
             _ => None,
         }
     }
