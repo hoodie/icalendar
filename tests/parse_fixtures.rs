@@ -9,7 +9,7 @@ use std::{
 use icalendar::parser::{read_calendar, unfold};
 
 fn with_all_fixtures<F>(
-    sub_folder: impl AsRef<Path>,
+    sub_folder: impl AsRef<Path> ,
     f: F,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
