@@ -84,7 +84,7 @@ pub fn read_calendar(input: &str) -> Result<Calendar<'_>, String> {
 
 #[test]
 fn begin_crash() {
-    assert!(read_calendar("BEGIN:").is_ok());
+    assert!(read_calendar("BEGIN:").is_err());
 }
 
 /// Parse iCalendar file content into an array of [`Component`]s

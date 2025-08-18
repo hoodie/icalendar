@@ -6,7 +6,7 @@ use nom::{
     bytes::complete::tag,
     combinator::{all_consuming, complete, cut},
     error::{context, ContextError, ParseError},
-    multi::{many0, many_till},
+    multi::{many0, many1, many_till},
     Finish, IResult, Parser,
 };
 
@@ -54,7 +54,7 @@ impl<'a> Component<'a> {
 }
 
 impl Component<'_> {
-    pub fn find_prop<S: AsRef<str>>(&self, name: S) -> Option<&Property> {
+    pub fn find_prop<S: AsRef<str>>(&self, name: S) -> Option<&Property<'_>> {
         self.properties
             .iter()
             .find(|prop| prop.name == name.as_ref())
@@ -520,5 +520,17 @@ pub fn components<'i, E>(input: &'i str) -> IResult<&'i str, Vec<Component<'i>>,
 where
     E: ParseError<&'i str> + ContextError<&'i str>,
 {
-    complete(many0(all_consuming(component))).parse(input)
+    complete(many1(all_consuming(component))).parse(input)
+}
+
+#[test]
+fn test_empty_string() {
+    let result = component::<VerboseError<&str>>("");
+    assert!(result.is_err());
+}
+
+#[test]
+fn test_arbitrary_string() {
+    let result = component::<VerboseError<&str>>("This is not a component");
+    assert!(result.is_err());
 }
