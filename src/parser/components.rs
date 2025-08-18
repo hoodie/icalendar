@@ -54,7 +54,7 @@ impl<'a> Component<'a> {
 }
 
 impl Component<'_> {
-    pub fn find_prop<S: AsRef<str>>(&self, name: S) -> Option<&Property> {
+    pub fn find_prop<S: AsRef<str>>(&self, name: S) -> Option<&Property<'_>> {
         self.properties
             .iter()
             .find(|prop| prop.name == name.as_ref())
