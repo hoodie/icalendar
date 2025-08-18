@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.2](https://github.com/hoodie/icalendar-rs/compare/v0.17.1...v0.17.2) (2025-08-18)
+
+#### Fixes
+
+* Prevent invalid text from being parsed as empty calendars
+([e56b5ba](https://github.com/hoodie/icalendar-rs/commit/e56b5ba72809ab692d5b8071768fc8feb261c8b1))
+
 ### [v0.17.1](https://github.com/hoodie/icalendar-rs/compare/v0.17.0...v0.17.1) (2025-07-23)
 
 #### Features
