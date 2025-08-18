@@ -9,7 +9,7 @@ use std::{
 use icalendar::parser::{read_calendar, unfold};
 
 fn with_all_fixtures<F>(
-    sub_folder: impl AsRef<Path> ,
+    sub_folder: impl AsRef<Path>,
     f: F,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
@@ -62,7 +62,6 @@ fn parse_fixtures_ical_js() {
         let fixture = std::fs::read_to_string(path).unwrap();
         if let Err(error) = read_calendar(&unfold(&fixture)) {
             println!("{error}");
-
             panic!("test failed: {path:?}");
         }
     })
