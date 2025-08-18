@@ -9,11 +9,11 @@ use std::{
 use icalendar::parser::{read_calendar, unfold};
 
 fn with_all_fixtures<F>(
-    sub_folder: impl AsRef<Path>,
+    sub_folder: impl AsRef<Path> ,
     f: F,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
-    F: Fn(&dyn AsRef<Path>), // -> Result<(), Box<dyn std::error::Error>>,
+    F: Fn(&Path), // -> Result<(), Box<dyn std::error::Error>>,
 {
     let fixture_path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("fixtures")
@@ -50,7 +50,7 @@ fn parse_fixtures_icalendar_rb() {
         if let Err(error) = read_calendar(&unfold(&fixture)) {
             println!("{error}");
 
-            panic!("test failed");
+            panic!("test failed: {path:?}");
         }
     })
     .unwrap();
