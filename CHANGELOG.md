@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.3](https://github.com/hoodie/icalendar-rs/compare/v0.17.2...v0.17.3) (2025-08-20)
+
+#### Fixes
+
+* resolve exponential parse time on unclosed components
+([27bb232](https://github.com/hoodie/icalendar-rs/commit/27bb232dc344fcf71af2354f380abad04834df7c))
+
 ### [v0.17.2](https://github.com/hoodie/icalendar-rs/compare/v0.17.1...v0.17.2) (2025-08-18)
 
 #### Fixes
