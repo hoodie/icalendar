@@ -1,4 +1,5 @@
 use nom::{
+    branch::alt,
     bytes::complete::{tag_no_case, take_while},
     character::complete::line_ending,
     combinator::complete,
@@ -7,8 +8,6 @@ use nom::{
     sequence::{delimited, preceded},
     Err, IResult, Parser,
 };
-#[cfg(test)]
-use pretty_assertions::assert_eq;
 
 use super::parsed_string::ParseString;
 
@@ -17,14 +16,22 @@ pub fn property_key<'i, E>(input: &'i str) -> IResult<&'i str, &'i str, E>
 where
     E: ParseError<&'i str> + ContextError<&'i str>,
 {
-    if input.get(0..=2) == Some("END") || input.get(0..=4) == Some("BEGIN") {
-        IResult::Err(Err::Error(nom::error::make_error(
-            input,
-            nom::error::ErrorKind::Satisfy,
-        )))
-    } else {
-        valid_key_sequence(input)
+    // Check for the BEGIN/END tag, then peek at the next character to validate that it's not a property key
+    if let Ok((rest, _)) = alt((
+        tag_no_case::<_, _, E>("BEGIN"),
+        tag_no_case::<_, _, E>("END"),
+    ))
+    .parse(input)
+    {
+        // BEGIN and END could be a prefix to a property key, i.e `BEGINNING`
+        if rest.starts_with(":") || rest.starts_with(";") || rest.is_empty() {
+            return IResult::Err(Err::Error(nom::error::make_error(
+                input,
+                nom::error::ErrorKind::Satisfy,
+            )));
+        }
     }
+    valid_key_sequence(input)
 }
 
 pub fn valid_key_sequence<'i, E>(input: &'i str) -> IResult<&'i str, &'i str, E>
@@ -123,4 +130,29 @@ fn test_unfold2() {
 
     assert_eq!(unfold(input1).lines().collect::<Vec<_>>(), expected);
     assert_eq!(unfold(input2).lines().collect::<Vec<_>>(), expected);
+}
+
+#[test]
+fn test_invalid_properties() {
+    let invalid_properties = [
+        "BEGIN",
+        "END",
+        "begin",
+        "end",
+        "BEGIN:asdf",
+        "END:asdf",
+        "begin:asdf",
+        "end:asdf",
+    ];
+    for property in invalid_properties {
+        assert!(property_key::<()>(property).is_err());
+    }
+}
+
+#[test]
+fn test_valid_properties() {
+    let valid_properties = ["BEGINNING", "ENDING", "ending", "beginning"];
+    for property in valid_properties {
+        assert!(property_key::<()>(property).is_ok());
+    }
 }
