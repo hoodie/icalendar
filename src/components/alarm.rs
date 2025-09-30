@@ -1,5 +1,5 @@
 use chrono::Duration;
-use std::{collections::HashMap, fmt::Debug, str::FromStr};
+use std::{fmt::Debug, str::FromStr};
 
 pub use self::properties::{Related, Trigger};
 
@@ -332,7 +332,7 @@ pub mod properties {
             Property {
                 key: String::from("ACTION"),
                 val: action.to_string(),
-                params: HashMap::new(),
+                params: Default::default(),
             }
         }
     }

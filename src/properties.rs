@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::BTreeMap,
     fmt::{self, Write},
     mem,
     str::FromStr,
@@ -40,8 +40,7 @@ impl From<(&str, &str)> for Parameter {
     }
 }
 
-//type EntryParameters = Vec<Parameter>;
-pub type EntryParameters = HashMap<String, Parameter>;
+pub type EntryParameters = BTreeMap<String, Parameter>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// key-value pairs inside of `Component`s
@@ -69,7 +68,7 @@ impl Property {
         Property {
             key: key.into(),
             val: val.into(),
-            params: HashMap::new(),
+            params: Default::default(),
         }
     }
 
@@ -79,7 +78,7 @@ impl Property {
         Property {
             key,
             val,
-            params: HashMap::new(),
+            params: Default::default(),
         }
     }
 
@@ -241,7 +240,7 @@ impl From<Class> for Property {
                 Class::Private => "PRIVATE",
                 Class::Confidential => "CONFIDENTIAL",
             }),
-            params: HashMap::new(),
+            params: Default::default(),
         }
     }
 }
@@ -313,7 +312,7 @@ impl From<EventStatus> for Property {
                 EventStatus::Confirmed => "CONFIRMED",
                 EventStatus::Cancelled => "CANCELLED",
             }),
-            params: HashMap::new(),
+            params: Default::default(),
         }
     }
 }
