@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.4](https://github.com/hoodie/icalendar-rs/compare/v0.17.3...v0.17.4) (2025-09-30)
+
+#### Fixes
+
+* replace HashMap with BTreeMap for properties, for determinism
+([1e8c70a](https://github.com/hoodie/icalendar-rs/commit/1e8c70a3fa44702ee816b5ef1351d8b1573308e4))
+
 ### [v0.17.3](https://github.com/hoodie/icalendar-rs/compare/v0.17.2...v0.17.3) (2025-08-20)
 
 #### Fixes
