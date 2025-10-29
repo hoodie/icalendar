@@ -6,7 +6,7 @@ license = "MIT/Apache-2.0"
 edition = "2021"
 
 description = "Strongly typed iCalendar builder and parser."
-keywords = ["ical", "icalendar", "parser", "RFC5545", "RFC7986"]
+keywords = ["ical", "icalendar", "parser", "RFC5545", "RFC7986", "RFC9073"]
 categories = ["date-and-time", "data-structures", "parsing"]
 
 documentation = "https://docs.rs/icalendar/"
