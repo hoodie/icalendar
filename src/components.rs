@@ -10,6 +10,8 @@ pub mod alarm;
 pub(crate) mod date_time;
 mod event;
 mod other;
+#[cfg(feature = "rfc9073")]
+mod participant;
 mod todo;
 mod venue;
 
@@ -17,6 +19,8 @@ use alarm::*;
 use date_time::{CalendarDateTime, DatePerhapsTime};
 pub use event::*;
 pub use other::*;
+#[cfg(feature = "rfc9073")]
+pub use participant::{Location, Participant, Resource};
 pub use todo::*;
 pub use venue::*;
 
@@ -543,6 +547,14 @@ event_impl! { Todo}
 
 component_impl! { Venue , String::from("VVENUE")}
 component_impl! { Alarm, String::from("VALARM") }
+
+#[cfg(feature = "rfc9073")]
+component_impl! { Participant, String::from("PARTICIPANT") }
+
+#[cfg(feature = "rfc9073")]
+component_impl! { Location, String::from("LOCATION") }
+#[cfg(feature = "rfc9073")]
+component_impl! { Resource, String::from("RESOURCE") }
 
 #[cfg(test)]
 mod tests {
