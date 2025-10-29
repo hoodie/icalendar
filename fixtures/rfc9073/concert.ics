@@ -1,0 +1,79 @@
+BEGIN:VEVENT
+UID:keith-jarrett-koeln-19750124@example.com
+SUMMARY:Keith Jarrett – Köln Concert
+DESCRIPTION:Keith Jarrett's legendary solo piano concert at the Köln Opera House, 24 January 1975.
+DTSTART;TZID=Europe/Berlin:19750124T233000
+DTEND;TZID=Europe/Berlin:19750125T010000
+DTSTAMP:19750124T220000Z
+CREATED:19750124T210000Z
+LAST-MODIFIED:19750124T220000Z
+IMAGE;VALUE=URI;DISPLAY=BADGE;FMTTYPE=image/jpeg:https://upload.wikimedia.org/wikipedia/en/2/2e/Keith_Jarrett_The_Koeln_Concert.jpg
+
+BEGIN:PARTICIPANT
+UID:keith.jarrett@example.com
+PARTICIPANT-TYPE:PERFORMER
+STRUCTURED-DATA;VALUE=URI:https://www.keithjarrett.org/vcard/keithjarrett.vcf
+STYLED-DESCRIPTION;VALUE=TEXT:Keith Jarrett, American jazz and classical pianist, performing solo improvisations.
+END:PARTICIPANT
+
+BEGIN:PARTICIPANT
+UID:wdr-broadcast@example.com
+PARTICIPANT-TYPE:SPONSOR
+STRUCTURED-DATA;VALUE=URI:https://www1.wdr.de/vcard/wdr.vcf
+DESCRIPTION:Westdeutscher Rundfunk (WDR), event sponsor and broadcaster.
+END:PARTICIPANT
+
+BEGIN:VLOCATION
+UID:koeln-opera-19750124@example.com
+NAME:Köln Opera House
+LOCATION-TYPE:venue
+STRUCTURED-DATA;VALUE=URI:https://www.oper.koeln/de/vcard/operkoeln.vcf
+DESCRIPTION:Köln Opera House, the venue for the concert.
+END:VLOCATION
+
+BEGIN:VLOCATION
+UID:koeln-opera-parking-19750124@example.com
+NAME:Köln Opera House Parking
+LOCATION-TYPE:parking
+STRUCTURED-DATA;VALUE=URI:https://www.koeln.de/parking/vcard/operparking.vcf
+DESCRIPTION:Parking for the Köln Opera House.
+END:VLOCATION
+
+STYLED-DESCRIPTION;VALUE=URI:https://www.keithjarrett.org/koeln-concert-description.html
+
+BEGIN:VRESOURCE
+UID:koeln-concert-piano-19750124@example.com
+NAME:Bösendorfer Grand Piano
+RESOURCE-TYPE:PIANO
+STRUCTURED-DATA;VALUE=URI:https://www.boesendorfer.com/vcard/koeln-piano.vcf
+DESCRIPTION:The grand piano used by Keith Jarrett for the concert.
+END:VRESOURCE
+
+STRUCTURED-DATA;FMTTYPE=application/ld+json;SCHEMA="https://schema.org/MusicEvent";VALUE=TEXT:{
+  "@context": "http://schema.org",
+  "@type": "MusicEvent",
+  "name": "Keith Jarrett – Köln Concert",
+  "startDate": "1975-01-24T23:30:00+01:00",
+  "endDate": "1975-01-25T01:00:00+01:00",
+  "location": {
+    "@type": "Place",
+    "name": "Köln Opera House",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Offenbachplatz",
+      "addressLocality": "Köln",
+      "postalCode": "50667",
+      "addressCountry": "DE"
+    }
+  },
+  "performer": {
+    "@type": "Person",
+    "name": "Keith Jarrett"
+  },
+  "sponsor": {
+    "@type": "Organization",
+    "name": "Westdeutscher Rundfunk (WDR)"
+  }
+}
+
+END:VEVENT

@@ -1,0 +1,67 @@
+# Support VLOCATION (RFC9073)
+
+Lets add support for "Event Publishing Extensions to iCalendar"
+At least the basics.
+This is a replacement for VVENUE, which is from a discontinued draft that was never release <https://datatracker.ietf.org/doc/html/draft-norris-ical-venue-01>
+
+## Stages
+
+### 1. Lets get familiar with <https://www.rfc-editor.org/rfc/rfc9073>.
+
+List out all the necessary new components, parameters, properties that need to be added.
+Find out if there is syntax we don't yet support (e.g. multiple instances of the same parameter in one property).
+
+Are there any dependencies on other RFCs that we have not implemented yet?
+Should we implement those RFC first?
+
+### 2. Prepare the testing environment.
+Create a fixture that demonstrates the necessary properties and parameters that can serve as a test for the parser as well.
+Take this straight from the RFC if possible
+
+### 3. Implement the module
+Implement the module with the necessary components, parameters, and properties.
+Settle for a distinct subset first. Put the rest in a markdown todo-list in the module documentation.
+Test the implementation with the fixture created in step 2.
+
+### 4. Mark the VVENUE types as deprecated
+mark types and methods that stem from `draft-norris-ical-venue-01` as `#[deprecated]`
+
+## Implementation Progress
+
+Current stage: 3 (we have a fixture)
+
+## RFC9073 Implementation Checklist
+
+### Components to Add
+- [ ] PARTICIPANT component
+- [ ] VLOCATION component
+- [ ] VRESOURCE component
+
+### Properties to Add
+- [ ] LOCATION-TYPE property
+- [ ] PARTICIPANT-TYPE property
+- [ ] RESOURCE-TYPE property
+- [ ] CALENDAR-ADDRESS property
+- [ ] STRUCTURED-DATA property
+- [ ] STYLED-DESCRIPTION property
+
+### Parameters to Add
+- [ ] ORDER parameter
+- [ ] SCHEMA parameter
+- [ ] DERIVED parameter
+
+### Syntax/Parsing Support
+- [ ] Multiple instances of the same property with parameters (e.g., ORDER)
+- [ ] Multiple STYLED-DESCRIPTION with DERIVED handling
+- [ ] STRUCTURED-DATA value types (TEXT, BINARY, URI) and required parameters
+- [ ] Nested components (e.g., PARTICIPANT containing VLOCATION/VRESOURCE)
+
+### Registry/Value List Support
+- [ ] PARTICIPANT-TYPE registry values (ACTIVE, INACTIVE, SPONSOR, CONTACT, BOOKING-CONTACT, EMERGENCY-CONTACT, PUBLICITY-CONTACT, PLANNER-CONTACT, PERFORMER, SPEAKER)
+- [ ] RESOURCE-TYPE registry values (PROJECTOR, ROOM, REMOTE-CONFERENCE-AUDIO, REMOTE-CONFERENCE-VIDEO)
+- [ ] LOCATION-TYPE values from RFC4589
+
+### Dependencies/References
+- [ ] Reference RFC5545, RFC7986, RFC6350, RFC4589 as needed for semantics and value lists
+
+---
