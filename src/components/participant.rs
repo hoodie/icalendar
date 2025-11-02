@@ -1,4 +1,6 @@
 #![cfg(feature = "rfc9073")]
+use crate::{CalendarComponent, properties::{Parameter, Property}};
+
 use super::*;
 
 /// PARTICIPANT (RFC9073)
@@ -11,6 +13,22 @@ impl Participant {
     /// Creates a new Participant.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Helper to add a property with parameters.
+    // TODO: is this really necessary? remove if possible
+    fn add_property_with_params(
+        &mut self,
+        key: &str,
+        value: &str,
+        params: &[(&str, &str)],
+    ) -> &mut Self {
+        let mut prop = Property::new(key, value);
+        for (k, v) in params {
+            prop.add_parameter(k, v);
+        }
+        self.inner.properties.insert(key.to_string(), prop);
+        self
     }
 
     /// Creates a new Participant with a UID.
@@ -27,6 +45,8 @@ impl Participant {
     }
 
     /// Sets the PARTICIPANT-TYPE property.
+    ///
+    /// [RFC9073 Section 6.2: PARTICIPANT-TYPE](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.2)
     pub fn participant_type(&mut self, value: &str) -> &mut Self {
         self.add_property("PARTICIPANT-TYPE", value)
     }
@@ -37,6 +57,8 @@ impl Participant {
     }
 
     /// Sets the CALENDAR-ADDRESS property.
+    ///
+    /// [RFC9073 Section 6.4: CALENDAR-ADDRESS](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.4)
     pub fn calendar_address(&mut self, value: &str) -> &mut Self {
         self.add_property("CALENDAR-ADDRESS", value)
     }
@@ -56,7 +78,40 @@ impl Participant {
         self.property_value("DESCRIPTION")
     }
 
+    /// Sets the STRUCTURED-DATA property.
+    ///
+    /// [RFC9073 Section 6.6: STRUCTURED-DATA](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.6)
+    /// Accepts value and optional parameters as Vec of (key, value) pairs.
+    pub fn structured_data(&mut self, value: &str, params: &[(&str, &str)]) -> &mut Self {
+        self.add_property_with_params("STRUCTURED-DATA", value, params)
+    }
+
+    /// Gets the STRUCTURED-DATA property value (first occurrence).
+    pub fn get_structured_data(&self) -> Option<&str> {
+        self.property_value("STRUCTURED-DATA")
+    }
+
+
+
     // TODO: Add more builder methods for other properties and nested components as needed.
+}
+
+impl From<Participant> for CalendarComponent {
+    fn from(val: Participant) -> Self {
+        CalendarComponent::Participant(val)
+    }
+}
+
+impl From<&Participant> for CalendarComponent {
+    fn from(val: &Participant) -> Self {
+        CalendarComponent::Participant(val.to_owned())
+    }
+}
+
+impl From<&mut Participant> for CalendarComponent {
+    fn from(val: &mut Participant) -> Self {
+        CalendarComponent::Participant(val.to_owned())
+    }
 }
 
 /// LOCATION (RFC9073, VLOCATION)
@@ -69,6 +124,21 @@ impl Location {
     /// Creates a new Location.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Helper to add a property with parameters.
+    fn add_property_with_params(
+        &mut self,
+        key: &str,
+        value: &str,
+        params: &[(&str, &str)],
+    ) -> &mut Self {
+        let mut prop = Property::new(key, value);
+        for (k, v) in params {
+            prop.add_parameter(k, v);
+        }
+        self.inner.properties.insert(key.to_string(), prop);
+        self
     }
 
     /// Creates a new Location with a UID.
@@ -85,6 +155,8 @@ impl Location {
     }
 
     /// Sets the LOCATION-TYPE property.
+    ///
+    /// [RFC9073 Section 6.1: LOCATION-TYPE](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.1)
     pub fn location_type(&mut self, value: &str) -> &mut Self {
         self.add_property("LOCATION-TYPE", value)
     }
@@ -114,6 +186,21 @@ impl Location {
         self.property_value("DESCRIPTION")
     }
 
+    /// Sets the STRUCTURED-DATA property.
+    ///
+    /// [RFC9073 Section 6.6: STRUCTURED-DATA](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.6)
+    /// Accepts value and optional parameters as Vec of (key, value) pairs.
+    pub fn structured_data(&mut self, value: &str, params: &[(&str, &str)]) -> &mut Self {
+        self.add_property_with_params("STRUCTURED-DATA", value, params)
+    }
+
+    /// Gets the STRUCTURED-DATA property value (first occurrence).
+    pub fn get_structured_data(&self) -> Option<&str> {
+        self.property_value("STRUCTURED-DATA")
+    }
+
+
+
     // TODO: Add more builder methods for other properties and nested components as needed.
 }
 
@@ -127,6 +214,21 @@ impl Resource {
     /// Creates a new Resource.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// Helper to add a property with parameters.
+    fn add_property_with_params(
+        &mut self,
+        key: &str,
+        value: &str,
+        params: &[(&str, &str)],
+    ) -> &mut Self {
+        let mut prop = Property::new(key, value);
+        for (k, v) in params {
+            prop.add_parameter(k, v);
+        }
+        self.inner.properties.insert(key.to_string(), prop);
+        self
     }
 
     /// Creates a new Resource with a UID.
@@ -143,6 +245,8 @@ impl Resource {
     }
 
     /// Sets the RESOURCE-TYPE property.
+    ///
+    /// [RFC9073 Section 6.3: RESOURCE-TYPE](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.3)
     pub fn resource_type(&mut self, value: &str) -> &mut Self {
         self.add_property("RESOURCE-TYPE", value)
     }
@@ -171,6 +275,21 @@ impl Resource {
     pub fn get_description(&self) -> Option<&str> {
         self.property_value("DESCRIPTION")
     }
+
+    /// Sets the STRUCTURED-DATA property.
+    ///
+    /// [RFC9073 Section 6.6: STRUCTURED-DATA](https://www.rfc-editor.org/rfc/rfc9073.html#section-6.6)
+    /// Accepts value and optional parameters as Vec of (key, value) pairs.
+    pub fn structured_data(&mut self, value: &str, params: &[(&str, &str)]) -> &mut Self {
+        self.add_property_with_params("STRUCTURED-DATA", value, params)
+    }
+
+    /// Gets the STRUCTURED-DATA property value (first occurrence).
+    pub fn get_structured_data(&self) -> Option<&str> {
+        self.property_value("STRUCTURED-DATA")
+    }
+
+
 
     // TODO: Add more builder methods for other properties and nested components as needed.
 }

@@ -1,6 +1,6 @@
 use crate::Component;
 
-use super::{Event, Other, Todo, Venue};
+use super::{Event, Other, Participant, Todo, Venue};
 use std::fmt;
 
 /// Wrapper for [`Todo`], [`Event`] or [`Venue`]
@@ -11,6 +11,7 @@ pub enum CalendarComponent {
     Todo(Todo),
     Event(Event),
     Venue(Venue),
+    Participant(Participant),
     #[doc(hidden)]
     Other(Other),
 }
@@ -110,6 +111,7 @@ impl CalendarComponent {
             CalendarComponent::Todo(ref todo) => todo.fmt_write(out),
             CalendarComponent::Event(ref event) => event.fmt_write(out),
             CalendarComponent::Venue(ref venue) => venue.fmt_write(out),
+            CalendarComponent::Participant(ref participant) => participant.fmt_write(out),
             CalendarComponent::Other(ref other) => other.fmt_write(out),
         }
     }

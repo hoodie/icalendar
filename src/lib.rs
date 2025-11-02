@@ -56,6 +56,8 @@ pub use crate::{
     properties::{Class, EventStatus, Parameter, Property, TodoStatus},
     value_types::ValueType,
 };
+#[cfg(feature = "rfc9073")]
+pub use crate::components::{Location, Participant, Resource};
 
 #[cfg(feature = "chrono-tz")]
 pub use crate::components::date_time::ymd_hm_tzid;
