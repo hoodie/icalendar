@@ -4,6 +4,10 @@ Lets add support for "Event Publishing Extensions to iCalendar"
 At least the basics.
 This is a replacement for VVENUE, which is from a discontinued draft that was never release <https://datatracker.ietf.org/doc/html/draft-norris-ical-venue-01>
 
+## MCP Tools
+
+you can use the icalendar-validator mcp server to verify example calendars. Missing version and PRODID and line endings are acceptable.
+
 ## Stages
 
 ### 1. Lets get familiar with <https://www.rfc-editor.org/rfc/rfc9073>.

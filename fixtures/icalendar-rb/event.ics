@@ -1,3 +1,4 @@
+BEGIN:VCALENDAR
 BEGIN:VEVENT
 DTSTAMP:20050118T211523Z
 UID:bsuidfortestabc123
@@ -14,4 +15,4 @@ ATTACH:http://corporations-dominate.existence.net/why.rhtml
 RDATE;TZID=US-Mountain:20050121T170000,20050122T170000
 X-TEST-COMPONENT;QTEST="Hello, World":Shouldn't double double quotes
 END:VEVENT
-
+END:VCALENDAR
