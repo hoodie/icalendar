@@ -247,3 +247,16 @@ fn test_parameter_with_quoted_comma_list() {
         Parameter::new_ref("DELEGATED-TO", Some("mailto:foo7@bar\",\"mailto:foo8@bar"))
     );
 }
+
+#[test]
+fn test_multiple_parameters_same_key() {
+    // This simulates multiple ORDER parameters on a property
+    assert_parser!(
+        parameters,
+        ";ORDER=1;ORDER=2",
+        vec![
+            Parameter::new_ref("ORDER", Some("1")),
+            Parameter::new_ref("ORDER", Some("2")),
+        ]
+    );
+}
