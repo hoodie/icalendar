@@ -11,7 +11,6 @@ pub enum CalendarComponent {
     Todo(Todo),
     Event(Event),
     Venue(Venue),
-    #[doc(hidden)]
     Other(Other),
 }
 
