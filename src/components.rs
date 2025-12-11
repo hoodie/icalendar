@@ -551,6 +551,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "parser")]
     fn get_url() {
         let url = "http://hoodie.de/";
         let event = Event::new().url(url).done();

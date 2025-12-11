@@ -250,15 +250,33 @@ pub enum DatePerhapsTime {
 impl DatePerhapsTime {
     /// Attempts to convert the given property into a `DatePerhapsTime`.
     pub fn from_property(property: &Property) -> Option<Self> {
+        let value = property.value();
+
+        // Check if VALUE=DATE parameter is explicitly set
         if property.value_type() == Some(ValueType::Date) {
-            Some(
-                NaiveDate::parse_from_str(property.value(), NAIVE_DATE_FORMAT)
+            return Some(
+                NaiveDate::parse_from_str(value, NAIVE_DATE_FORMAT)
                     .ok()?
                     .into(),
-            )
-        } else {
-            Some(CalendarDateTime::from_property(property)?.into())
+            );
         }
+
+        // Try parsing as DATE-TIME first (the default for DTSTART)
+        if let Some(dt) = CalendarDateTime::from_property(property) {
+            return Some(dt.into());
+        }
+
+        // Fall back to parsing as DATE for leniency (handles DATE without VALUE=DATE parameter)
+        #[cfg(not(feature = "strict-dates"))]
+        {
+            NaiveDate::parse_from_str(value, NAIVE_DATE_FORMAT)
+                .ok()
+                .map(Into::into)
+        }
+
+        // In strict mode, do not accept DATE without VALUE=DATE parameter
+        #[cfg(feature = "strict-dates")]
+        None
     }
 
     /// Converts this `DatePerhapsTime` into a `Property`.
@@ -561,5 +579,64 @@ mod try_from_tests {
         let result = DatePerhapsTime::try_from(&prop);
 
         assert_eq!(result, Err("Value does not look like a known DATE-TIME"));
+    }
+}
+
+#[cfg(test)]
+mod strict_dates_tests {
+    use super::*;
+
+    #[test]
+    #[cfg(not(feature = "strict-dates"))]
+    fn lenient_mode_accepts_date_without_value_param() {
+        let dt = DatePerhapsTime::from_property(&Property::new("DTSTART", "20000101"));
+
+        assert!(
+            dt.is_some(),
+            "In lenient mode, DATE without VALUE=DATE parameter should parse successfully"
+        );
+
+        assert!(
+            matches!(dt, Some(DatePerhapsTime::Date(_))),
+            "Expected DatePerhapsTime::Date variant"
+        );
+    }
+
+    #[test]
+    #[cfg(feature = "strict-dates")]
+    fn strict_mode_rejects_date_without_value_param() {
+        assert!(
+            DatePerhapsTime::from_property(&Property::new("DTSTART", "20000101")).is_none(),
+            "In strict mode, DATE without VALUE=DATE parameter should fail to parse"
+        );
+    }
+
+    #[test]
+    fn both_modes_accept_date_with_value_param() {
+        let dt = DatePerhapsTime::from_property(
+            Property::new("DTSTART", "20000101").append_parameter(("VALUE", "DATE")),
+        );
+
+        assert!(
+            dt.is_some(),
+            "Both modes should parse DATE with explicit VALUE=DATE parameter"
+        );
+
+        assert!(
+            matches!(dt, Some(DatePerhapsTime::Date(_))),
+            "Expected DatePerhapsTime::Date variant"
+        );
+    }
+
+    #[test]
+    fn both_modes_accept_datetime() {
+        let dt = DatePerhapsTime::from_property(&Property::new("DTSTART", "20000101T120000Z"));
+
+        assert!(dt.is_some(), "Both modes should parse DATE-TIME values");
+
+        assert!(
+            matches!(dt, Some(DatePerhapsTime::DateTime(_))),
+            "Expected DatePerhapsTime::DateTime variant"
+        );
     }
 }
