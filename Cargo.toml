@@ -61,6 +61,11 @@ path = "examples/parse.rs"
 required-features = ["parser"]
 
 [[example]]
+name = "readme_parse"
+path = "examples/readme-parse.rs"
+required-features = ["parser"]
+
+[[example]]
 name = "parse_advanced"
 path = "examples/parse_advanced.rs"
 required-features = ["parser"]
