@@ -1,4 +1,4 @@
-#![doc = include_str!("../README.md")]
+#![cfg_attr(feature = "parser", doc = include_str!("../README.md"))]
 #![allow(deprecated)]
 #![warn(
     missing_docs,

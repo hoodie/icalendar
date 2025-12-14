@@ -19,6 +19,7 @@ exclude = ["fixtures", ".github", ".gitignore", "*.json"]
 [features]
 default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
+strict-dates = []
 
 [dependencies]
 serde = { version = "1.0", optional = true, features = ["derive"] }
@@ -57,6 +58,11 @@ all-features = true
 [[example]]
 name = "parse"
 path = "examples/parse.rs"
+required-features = ["parser"]
+
+[[example]]
+name = "readme_parse"
+path = "examples/readme-parse.rs"
 required-features = ["parser"]
 
 [[example]]
