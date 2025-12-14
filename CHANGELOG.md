@@ -1,16 +1,57 @@
 # Changelog
 
-### [v0.17.5](https://github.com/hoodie/icalendar/compare/v0.16.13...v0.17.5) (2025-10-04)
+### [v0.17.6](https://github.com/hoodie/icalendar/compare/v0.17.5...v0.17.6) (2025-12-14)
+
+#### Features
+
+* make datetime parser more lenient toward containing only dates
+([6d1878b](https://github.com/hoodie/icalendar/commit/6d1878bf835b2a67792d1713b65ff681cd8db769))
+
+### [v0.17.5](https://github.com/hoodie/icalendar/compare/v0.17.4...v0.17.5) (2025-10-04)
+
+#### Fixes
+
+* define a minimum required version of time and chrono
+([c0ffee7](https://github.com/hoodie/icalendar/commit/c0ffee7dc283c956771523e145f6a25e1ea334aa)),
+closes [#158](https://github.com/hoodie/icalendar/issues/158)
+
+### [v0.17.4](https://github.com/hoodie/icalendar/compare/v0.17.3...v0.17.4) (2025-09-30)
+
+#### Fixes
+
+* replace HashMap with BTreeMap for properties, for determinism
+([1e8c70a](https://github.com/hoodie/icalendar/commit/1e8c70a3fa44702ee816b5ef1351d8b1573308e4))
+
+### [v0.17.3](https://github.com/hoodie/icalendar/compare/v0.17.2...v0.17.3) (2025-08-20)
+
+#### Fixes
+
+* resolve exponential parse time on unclosed components
+([27bb232](https://github.com/hoodie/icalendar/commit/27bb232dc344fcf71af2354f380abad04834df7c))
+
+### [v0.17.2](https://github.com/hoodie/icalendar/compare/v0.17.1...v0.17.2) (2025-08-18)
+
+#### Fixes
+
+* Prevent invalid text from being parsed as empty calendars
+([e56b5ba](https://github.com/hoodie/icalendar/commit/e56b5ba72809ab692d5b8071768fc8feb261c8b1))
+
+### [v0.17.1](https://github.com/hoodie/icalendar/compare/v0.17.0...v0.17.1) (2025-07-23)
+
+#### Features
+
+* add remove_xxx method for optional properties
+([68d930d](https://github.com/hoodie/icalendar/commit/68d930dd274302e360b76e1a01c427e2d40d8c09))
+
+## [v0.17.0](https://github.com/hoodie/icalendar/compare/v0.16.17...v0.17.0) (2025-07-21)
 
 ### ⚠ BREAKING CHANGE
 
 * (soft) adding two methods to the `EventLike` trait that hopefully nobody implements themselves
 
 
-#### Features
+### Features
 
-* add remove_xxx method for optional properties
-([68d930d](https://github.com/hoodie/icalendar/commit/68d930dd274302e360b76e1a01c427e2d40d8c09))
 * add mark_uncompleted() helper
 ([aa37179](https://github.com/hoodie/icalendar/commit/aa37179a13bda57b962e4ddcd8217443ae4668cb))
 * add calendar component iterator helpers
@@ -21,27 +62,35 @@
 ([6032fec](https://github.com/hoodie/icalendar/commit/6032fecd253bdb62808d92b47d3a4ff48afde315))
 * add remove_property and remove_multi_property methods
 ([f76f50d](https://github.com/hoodie/icalendar/commit/f76f50ddaf76d92678f8b100ad07e8c4e7b77394))
+
+### [v0.16.17](https://github.com/hoodie/icalendar/compare/v0.16.16...v0.16.17) (2025-07-21)
+
+#### Features
+
 * add methods to get and set RECURRENCE-ID.
 ([c726cea](https://github.com/hoodie/icalendar/commit/c726cea444038763543b87d81ea37b5dfe06fa2b))
-* add From-implementations for the time crate
-([38a6ac2](https://github.com/hoodie/icalendar/commit/38a6ac211ab7ee476b4b8a4bcf1ce2ebea6bdbee))
-* implement std::iter::Extend for Calendar
-([bbb7090](https://github.com/hoodie/icalendar/commit/bbb709001d123d8373a72308850222858d8fa417))
+
+### [v0.16.16](https://github.com/hoodie/icalendar/compare/v0.16.15...v0.16.16) (2025-07-15)
 
 #### Fixes
 
-* define a minimum required version of time and chrono
-([c0ffee7](https://github.com/hoodie/icalendar/commit/c0ffee7dc283c956771523e145f6a25e1ea334aa)),
-closes [#158](https://github.com/hoodie/icalendar/issues/158)
-* replace HashMap with BTreeMap for properties, for determinism
-([1e8c70a](https://github.com/hoodie/icalendar/commit/1e8c70a3fa44702ee816b5ef1351d8b1573308e4))
-* resolve exponential parse time on unclosed components
-([27bb232](https://github.com/hoodie/icalendar/commit/27bb232dc344fcf71af2354f380abad04834df7c))
-* Prevent invalid text from being parsed as empty calendars
-([e56b5ba](https://github.com/hoodie/icalendar/commit/e56b5ba72809ab692d5b8071768fc8feb261c8b1))
 * set/access 'LAST-MODIFIED' instead of 'LAST_MODIFIED' in the corresponding
 functions
 ([5c693e7](https://github.com/hoodie/icalendar/commit/5c693e7dd0fb7c871302058a6cb3c5d9b6d0f43b))
+
+### [v0.16.15](https://github.com/hoodie/icalendar/compare/v0.16.14...v0.16.15) (2025-06-10)
+
+#### Features
+
+* add From-implementations for the time crate
+([38a6ac2](https://github.com/hoodie/icalendar/commit/38a6ac211ab7ee476b4b8a4bcf1ce2ebea6bdbee))
+
+### [v0.16.14](https://github.com/hoodie/icalendar/compare/v0.16.13...v0.16.14) (2025-06-10)
+
+#### Features
+
+* implement std::iter::Extend for Calendar
+([bbb7090](https://github.com/hoodie/icalendar/commit/bbb709001d123d8373a72308850222858d8fa417))
 
 ### [v0.16.13](https://github.com/hoodie/icalendar/compare/v0.16.12...v0.16.13) (2025-02-26)
 
