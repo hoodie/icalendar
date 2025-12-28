@@ -110,6 +110,21 @@ fn test_quirky_parameter() {
     assert_parser!(parameter, ";KEY=", Parameter::new_ref("KEY", None));
 }
 
+#[test]
+fn test_parameter_with_quoted_value() {
+    assert_parser!(
+        parameter,
+        ";KEY=\"foo,bar;baz\"",
+        Parameter::new_ref("KEY", Some("foo,bar;baz"))
+    );
+
+    assert_parser!(
+        parameter,
+        ";KEY=\"foo:bar\"",
+        Parameter::new_ref("KEY", Some("foo:bar"))
+    );
+}
+
 fn remove_empty_string(input: Option<&str>) -> Option<&str> {
     if let Some(input) = input {
         return if input.is_empty() { None } else { Some(input) };
@@ -221,4 +236,27 @@ where
     E: ParseError<&'i str> + ContextError<&'i str>,
 {
     many0(parameter).parse(input)
+}
+
+#[test]
+fn test_parameter_with_quoted_comma_list() {
+    // This simulates DELEGATED-TO with a comma-separated quoted list
+    assert_parser!(
+        parameter,
+        ";DELEGATED-TO=\"mailto:foo7@bar\",\"mailto:foo8@bar\"",
+        Parameter::new_ref("DELEGATED-TO", Some("mailto:foo7@bar\",\"mailto:foo8@bar"))
+    );
+}
+
+#[test]
+fn test_multiple_parameters_same_key() {
+    // This simulates multiple ORDER parameters on a property
+    assert_parser!(
+        parameters,
+        ";ORDER=1;ORDER=2",
+        vec![
+            Parameter::new_ref("ORDER", Some("1")),
+            Parameter::new_ref("ORDER", Some("2")),
+        ]
+    );
 }
