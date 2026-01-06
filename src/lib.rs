@@ -46,6 +46,8 @@ pub mod parser;
 mod properties;
 mod value_types;
 
+#[cfg(feature = "rfc9073")]
+pub use crate::components::{Location, Participant, Resource};
 pub use crate::{
     calendar::{Calendar, CalendarComponent},
     components::{

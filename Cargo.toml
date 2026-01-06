@@ -6,7 +6,7 @@ license = "MIT/Apache-2.0"
 edition = "2021"
 
 description = "Strongly typed iCalendar builder and parser."
-keywords = ["ical", "icalendar", "parser", "RFC5545", "RFC7986"]
+keywords = ["ical", "icalendar", "parser", "RFC5545", "RFC7986", "RFC9073"]
 categories = ["date-and-time", "data-structures", "parsing"]
 
 documentation = "https://docs.rs/icalendar/"
@@ -20,6 +20,7 @@ exclude = ["fixtures", ".github", ".gitignore", "*.json"]
 default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
 strict-dates = []
+rfc9073 = []
 
 [dependencies]
 serde = { version = "1.0", optional = true, features = ["derive"] }
@@ -94,3 +95,18 @@ required-features = ["parser"]
 name = "timezone"
 path = "examples/timezone.rs"
 required-features = ["chrono-tz"]
+
+[[example]]
+name = "participant"
+path = "examples/participant.rs"
+required-features = ["rfc9073"]
+
+[[example]]
+name = "rfc9073"
+path = "examples/rfc9073.rs"
+required-features = ["rfc9073"]
+
+[[example]]
+name = "itineraries"
+path = "examples/itineraries.rs"
+required-features = ["rfc9073"]
