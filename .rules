@@ -1,0 +1,821 @@
+# iCalendar-RS Development Rules
+
+This file provides context and conventions for AI coding agents working on this project.
+
+## Project Overview
+
+**icalendar** is a strongly-typed iCalendar (RFC 5545) builder and parser library for Rust. It allows users to:
+- Build calendars programmatically using a fluent builder pattern
+- Parse existing `.ics` files into structured Rust types
+- Serialize calendars back to RFC 5545 compliant format
+
+### Key Specifications
+- **RFC 5545**: Internet Calendaring and Scheduling Core Object Specification (iCalendar)
+- **RFC 7986**: New Properties for iCalendar (extensions)
+
+---
+
+## Code Structure (Detailed)
+
+### High-Level Architecture
+
+The crate has two parallel type hierarchies:
+
+1. **Builder Types** (`src/`): Owned, mutable types for constructing calendars
+2. **Parser Types** (`src/parser/`): Zero-copy borrowed types for parsing (feature-gated)
+
+Both hierarchies follow the same conceptual model:
+
+```
+Calendar
+├── properties: Vec<Property>           # VERSION, PRODID, CALSCALE, etc.
+└── components: Vec<CalendarComponent>
+    ├── Event (VEVENT)
+    │   ├── properties: BTreeMap<String, Property>
+    │   ├── multi_properties: BTreeMap<String, Vec<Property>>  # ATTENDEE, etc.
+    │   └── components: Vec<Other>      # Nested VALARM components
+    ├── Todo (VTODO)
+    ├── Venue (VVENUE)
+    └── Other                           # Catch-all for unknown components
+```
+
+### Module Layout
+
+```
+src/
+├── lib.rs                    # Crate root, public API exports, lint configuration
+├── assert.rs                 # Test helper macros (test-only)
+├── calendar.rs               # Calendar struct and container semantics
+├── calendar/
+│   └── calendar_component.rs # CalendarComponent enum (Event|Todo|Venue|Other)
+├── components.rs             # Component trait, EventLike trait, InnerComponent
+├── components/
+│   ├── alarm.rs              # Alarm struct, Trigger/Related types
+│   ├── date_time.rs          # CalendarDateTime, DatePerhapsTime, conversions
+│   ├── event.rs              # Event struct (VEVENT)
+│   ├── todo.rs               # Todo struct (VTODO)
+│   ├── venue.rs              # Venue struct (VVENUE)
+│   └── other.rs              # Other struct (catch-all parsed component)
+├── period.rs                 # Period type (currently unused)
+├── properties.rs             # Property, Parameter, Class, EventStatus, TodoStatus
+├── repeats.rs                # Repeat/recurrence helpers (currently unused)
+├── value_types.rs            # ValueType enum per RFC 5545 Section 8.3.4
+└── parser/                   # Feature-gated parser module
+    ├── mod.rs                # Entry points: read_calendar(), unfold()
+    ├── calendar.rs           # Calendar-level parsing
+    ├── components.rs         # Component parsing, parser::Component type
+    ├── parameters.rs         # Parameter parsing, parser::Parameter type
+    ├── properties.rs         # Property parsing, parser::Property type
+    ├── parsed_string.rs      # ParseString<'a> - zero-copy string wrapper
+    ├── utils.rs              # Line unfolding, key validation
+    └── tests.rs              # Parser-specific tests
+```
+
+---
+
+### Core Types (Builder Side)
+
+#### `Calendar` (`src/calendar.rs`)
+
+The top-level container representing a complete iCalendar document.
+
+```rust
+pub struct Calendar {
+    pub properties: Vec<Property>,           // Top-level properties
+    pub components: Vec<CalendarComponent>,  // Events, Todos, Venues
+}
+```
+
+**Key behaviors:**
+- `Default` adds VERSION, PRODID, CALSCALE properties automatically
+- `Calendar::empty()` creates without default properties
+- Implements `Deref<Target = [CalendarComponent]>` for slice access
+- Implements `FromIterator<C: Into<CalendarComponent>>` for collection
+- Implements `Extend<U: Into<CalendarComponent>>`
+- `push()` adds components, `append()` merges calendars
+
+**Builder methods:**
+- `name(&str)` → sets NAME and X-WR-CALNAME
+- `description(&str)` → sets DESCRIPTION and X-WR-CALDESC
+- `timezone(&str)` → sets TIMEZONE-ID and X-WR-TIMEZONE
+- `ttl(&Duration)` → sets REFRESH-INTERVAL and X-PUBLISHED-TTL
+- `done()` → finalizes builder, moves data out
+
+**Iterators:**
+- `events()` / `events_mut()` → iterate over Event components
+- `todos()` / `todos_mut()` → iterate over Todo components
+
+#### `CalendarComponent` (`src/calendar/calendar_component.rs`)
+
+Enum wrapper for all component types that can appear in a Calendar:
+
+```rust
+#[non_exhaustive]
+pub enum CalendarComponent {
+    Todo(Todo),
+    Event(Event),
+    Venue(Venue),
+    Other(Other),  // Catch-all for unknown/parsed components
+}
+```
+
+**Accessor methods:**
+- `as_event() -> Option<&Event>`
+- `as_todo() -> Option<&Todo>`
+
+**Conversions:** Implements `From<Event>`, `From<Todo>`, `From<Venue>`, `From<Other>` and their reference variants.
+
+---
+
+#### `InnerComponent` (`src/components.rs`)
+
+Internal storage shared by all component types:
+
+```rust
+pub(crate) struct InnerComponent {
+    pub properties: BTreeMap<String, Property>,       // Single-occurrence props
+    pub multi_properties: BTreeMap<String, Vec<Property>>,  // ATTENDEE, CATEGORIES, etc.
+    pub components: Vec<Other>,                       // Nested components (e.g., VALARM)
+}
+```
+
+**Design note:** Properties are stored in a `BTreeMap` for deterministic serialization order. Multi-properties (those that can appear multiple times per RFC 5545) are stored separately.
+
+---
+
+#### `Event` (`src/components/event.rs`)
+
+Represents a VEVENT component:
+
+```rust
+pub struct Event {
+    pub(super) inner: InnerComponent,
+}
+```
+
+**Constructors:**
+- `Event::new()` → empty event
+- `Event::with_uid(&str)` → event with preset UID
+
+**Event-specific methods:**
+- `status(EventStatus)` / `get_status()` / `remove_status()`
+
+**Inherits from `Component` trait:** summary, description, uid, class, priority, timestamp, url, etc.
+
+**Inherits from `EventLike` trait:** starts, ends, all_day, location, venue, alarm, recurrence_id
+
+---
+
+#### `Todo` (`src/components/todo.rs`)
+
+Represents a VTODO component:
+
+```rust
+pub struct Todo {
+    pub(super) inner: InnerComponent,
+}
+```
+
+**Todo-specific methods:**
+- `percent_complete(u8)` / `get_percent_complete()` / `remove_percent_complete()`
+- `due(DatePerhapsTime)` / `get_due()` / `remove_due()`
+- `completed(DateTime<Utc>)` / `get_completed()` / `remove_completed()`
+- `status(TodoStatus)` / `get_status()` / `remove_status()`
+- `mark_uncompleted()` → removes COMPLETED, PERCENT-COMPLETE, and STATUS if Completed
+
+---
+
+#### `Venue` (`src/components/venue.rs`)
+
+Represents a VVENUE component (draft spec):
+
+```rust
+pub struct Venue {
+    pub(super) inner: InnerComponent,
+}
+```
+
+**Venue-specific methods:**
+- `street_address(&str)` / `get_street_address()` / `remove_street_address()`
+- `extended_address(&str)` / `get_extended_address()` / `remove_extended_address()`
+- `locality(&str)` / `get_locality()` / `remove_locality()`
+- `region(&str)` / `get_region()` / `remove_region()`
+- `country(&str)` / `get_country()` / `remove_country()`
+- `postal_code(&str)` / `get_postal_code()` / `remove_postal_code()`
+
+---
+
+#### `Alarm` (`src/components/alarm.rs`)
+
+Represents a VALARM component (nested in Event/Todo):
+
+```rust
+pub struct Alarm {
+    pub(crate) inner: InnerComponent,
+}
+```
+
+**Constructors (factory pattern, not `new()`):**
+- `Alarm::audio(trigger)` → audio alarm with trigger
+- `Alarm::display(description, trigger)` → display alarm with description
+
+**Methods:**
+- `duration_and_repeat(Duration, count)` → sets DURATION and REPEAT (must be set together)
+- `done()` → finalizes builder
+
+**Trigger types** (`src/components/alarm.rs::properties`):
+```rust
+pub enum Trigger {
+    Duration(Duration, Option<Related>),  // Relative: before/after start/end
+    DateTime(CalendarDateTime),            // Absolute time
+}
+
+pub enum Related {
+    Start,  // Relative to DTSTART
+    End,    // Relative to DTEND
+}
+```
+
+**Trigger constructors:**
+- `Trigger::before_start(Duration)`
+- `Trigger::before_end(Duration)`
+- `Trigger::after_start(Duration)`
+- `Trigger::after_end(Duration)`
+
+---
+
+#### `Other` (`src/components/other.rs`)
+
+Catch-all for unknown or dynamically-typed components:
+
+```rust
+pub struct Other {
+    name: String,
+    pub(super) inner: InnerComponent,
+}
+```
+
+Used when parsing encounters unknown component types. Implements `Component` trait manually (not via macro).
+
+---
+
+### Property Types
+
+#### `Property` (`src/properties.rs`)
+
+Key-value pair with optional parameters:
+
+```rust
+pub struct Property {
+    pub(crate) key: String,
+    pub(crate) val: String,
+    pub(crate) params: BTreeMap<String, Parameter>,  // EntryParameters alias
+}
+```
+
+**Constructors:**
+- `Property::new(key, val)` → basic property
+- `Property::from_array([...])` → batch creation
+
+**Methods:**
+- `key() -> &str` / `value() -> &str` / `params() -> &EntryParameters`
+- `value_type() -> Option<ValueType>` → infers from VALUE param or property name
+- `append_parameter(Parameter)` / `add_parameter(key, val)`
+- `get_value_as(converter_fn)` / `get_param_as(key, converter_fn)`
+- `done()` → finalizes builder
+
+**Serialization:**
+- `fmt_write(&mut W)` → writes RFC 5545 format with proper escaping and line folding
+
+---
+
+#### `Parameter` (`src/properties.rs`)
+
+Key-value modifier on a Property:
+
+```rust
+pub struct Parameter {
+    key: String,
+    val: String,
+}
+```
+
+**Constructors:**
+- `Parameter::new(key, val)`
+- `From<(&str, &str)>`
+
+---
+
+#### Status Enums
+
+```rust
+pub enum Class { Public, Private, Confidential }
+
+pub enum EventStatus { Tentative, Confirmed, Cancelled }
+
+pub enum TodoStatus { NeedsAction, Completed, InProcess, Cancelled }
+```
+
+All implement `From<Self> for Property` for easy appending.
+
+---
+
+#### `ValueType` (`src/value_types.rs`)
+
+RFC 5545 Section 8.3.4 value data types:
+
+```rust
+pub enum ValueType {
+    Binary, Boolean, CalAddress, Date, DateTime, Duration,
+    Float, Integer, Period, Recur, Text, Time, Uri, UtcOffset,
+}
+```
+
+**Key method:**
+- `ValueType::by_name(property_name) -> Option<ValueType>` → maps property names to their default value types per RFC 5545
+
+---
+
+### DateTime Types (`src/components/date_time.rs`)
+
+#### `CalendarDateTime`
+
+Represents RFC 5545 Section 3.3.5 DATE-TIME forms:
+
+```rust
+pub enum CalendarDateTime {
+    Floating(NaiveDateTime),              // FORM #1: Local time, no timezone
+    Utc(DateTime<Utc>),                   // FORM #2: UTC (ends with 'Z')
+    WithTimezone {                        // FORM #3: With TZID parameter
+        date_time: NaiveDateTime,
+        tzid: String,
+    },
+}
+```
+
+**Conversions (From impls):**
+- `DateTime<Utc>` → `CalendarDateTime::Utc`
+- `NaiveDateTime` → `CalendarDateTime::Floating`
+- `(NaiveDateTime, chrono_tz::Tz)` → `CalendarDateTime::WithTimezone` (feature-gated)
+
+**Methods:**
+- `try_into_utc() -> Option<DateTime<Utc>>` (feature: chrono-tz)
+- `from_ymd_hm_tzid(...)` (feature: chrono-tz)
+
+#### `DatePerhapsTime`
+
+Wrapper that can hold either a date or datetime:
+
+```rust
+pub enum DatePerhapsTime {
+    DateTime(CalendarDateTime),
+    Date(NaiveDate),
+}
+```
+
+**Conversions (From impls):**
+- `CalendarDateTime`, `DateTime<Utc>`, `NaiveDateTime`, `NaiveDate`
+- `time::Date`, `time::OffsetDateTime`, `time::PrimitiveDateTime` (feature: time)
+
+**Methods:**
+- `date_naive() -> NaiveDate` → extracts date portion
+
+---
+
+### Traits
+
+#### `Component` (`src/components.rs`)
+
+Base trait for all calendar components. **All builder methods return `&mut Self`** for chaining.
+
+**Required methods (implemented by `component_impl!` macro):**
+```rust
+fn component_kind(&self) -> String;           // "VEVENT", "VTODO", etc.
+fn properties(&self) -> &BTreeMap<String, Property>;
+fn multi_properties(&self) -> &BTreeMap<String, Vec<Property>>;
+fn components(&self) -> &[Other];
+fn append_property(&mut self, impl Into<Property>) -> &mut Self;
+fn append_multi_property(&mut self, impl Into<Property>) -> &mut Self;
+fn append_component(&mut self, impl Into<Other>) -> &mut Self;
+fn remove_property(&mut self, key: &str) -> &mut Self;
+fn remove_multi_property(&mut self, key: &str) -> &mut Self;
+```
+
+**Provided methods (common to all components):**
+```rust
+// Accessors
+fn property_value(&self, key: &str) -> Option<&str>;
+fn get_summary() / get_description() / get_uid() / get_priority() / ...
+fn get_start() / get_end() / get_recurrence_id() -> Option<DatePerhapsTime>;
+fn get_timestamp() / get_last_modified() / get_created() -> Option<DateTime<Utc>>;
+fn get_class() -> Option<Class>;
+fn get_url() -> Option<&str>;
+fn get_sequence() -> Option<u32>;
+
+// Setters (all return &mut Self)
+fn add_property(&mut self, key, val) -> &mut Self;
+fn summary(&mut self, &str) / description(&mut self, &str) / uid(&mut self, &str);
+fn priority(&mut self, u32);  // Clamped to 0-10
+fn class(&mut self, Class);
+fn url(&mut self, &str);
+fn timestamp(&mut self, DateTime<Utc>);
+fn last_modified(&mut self, DateTime<Utc>);
+fn created(&mut self, DateTime<Utc>);
+fn sequence(&mut self, u32);
+
+// Removers (all return &mut Self)
+fn remove_summary() / remove_description() / remove_priority() / ...
+
+// Serialization
+fn to_string(&self) -> String;
+fn try_into_string(&self) -> Result<String, fmt::Error>;
+fn fmt_write<W: fmt::Write>(&self, out: &mut W) -> Result<(), fmt::Error>;
+fn print(&self) -> Result<(), fmt::Error>;
+```
+
+**Serialization behavior:**
+- Automatically adds `DTSTAMP` (current UTC time) if missing
+- Automatically adds `UID` (UUID v4) if missing
+- Writes properties in BTreeMap order (deterministic)
+
+#### `EventLike` (`src/components.rs`)
+
+Extension trait for components with start/end times (Event, Todo):
+
+```rust
+fn starts<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self;
+fn ends<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self;
+fn remove_starts(&mut self) -> &mut Self;
+fn remove_ends(&mut self) -> &mut Self;
+
+fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self;
+fn remove_recurrence_id(&mut self) -> &mut Self;
+
+fn all_day(&mut self, NaiveDate) -> &mut Self;  // Sets DTSTART and DTEND as DATE
+
+fn location(&mut self, &str) -> &mut Self;
+fn venue(&mut self, location: &str, venue_uid: &str) -> &mut Self;  // With VVENUE ref
+fn get_location(&self) -> Option<&str>;
+fn remove_location(&mut self) -> &mut Self;
+
+fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self;
+```
+
+---
+
+### Macros (`src/components.rs`)
+
+#### `component_impl!`
+
+Implements `Component` trait for a type:
+
+```rust
+component_impl! { Event, String::from("VEVENT") }
+component_impl! { Todo, String::from("VTODO") }
+component_impl! { Venue, String::from("VVENUE") }
+component_impl! { Alarm, String::from("VALARM") }
+```
+
+Also implements:
+- `From<InnerComponent> for $type`
+- `From<$type> for Other`
+- `TryInto<String> for $type`
+
+#### `event_impl!`
+
+Implements `EventLike` trait (empty impl, uses default methods):
+
+```rust
+event_impl! { Event }
+event_impl! { Todo }
+```
+
+---
+
+### Parser Types (`src/parser/`, feature-gated)
+
+#### `parser::Calendar<'a>` (`src/parser/calendar.rs`)
+
+Parsed calendar wrapper containing properties and components:
+
+```rust
+pub struct Calendar<'a> {
+    pub properties: Vec<Property<'a>>,
+    pub components: Vec<Component<'a>>,
+}
+```
+
+#### `parser::Component<'a>`
+
+Zero-copy parsed component:
+
+```rust
+pub struct Component<'a> {
+    pub name: ParseString<'a>,
+    pub properties: Vec<Property<'a>>,
+    pub components: Vec<Component<'a>>,
+}
+```
+
+**Methods:**
+- `find_prop(name) -> Option<&Property>`
+
+**Conversions:**
+- `From<Component<'_>> for CalendarComponent` → routes to Event/Todo/Venue/Other
+- `From<Component<'_>> for InnerComponent`
+- `From<Component<'_>> for Other`
+
+#### `parser::Property<'a>`
+
+Zero-copy parsed property:
+
+```rust
+pub struct Property<'a> {
+    pub name: ParseString<'a>,
+    pub val: ParseString<'a>,
+    pub params: Vec<Parameter<'a>>,
+}
+```
+
+**Multi-property detection:**
+- `is_multi_property()` → checks against MULTIS list (ATTENDEE, CATEGORIES, etc.)
+
+#### `parser::Parameter<'a>`
+
+Zero-copy parsed parameter:
+
+```rust
+pub struct Parameter<'a> {
+    pub key: ParseString<'a>,
+    pub val: Option<ParseString<'a>>,  // Optional! Some params have no value
+}
+```
+
+#### `ParseString<'a>` (`src/parser/parsed_string.rs`)
+
+Wrapper that can hold borrowed or owned string, with escape handling:
+
+- Implements `Deref<Target = str>`
+- `as_str() -> &str`
+- `into_owned() -> String`
+- `unescape_by_value_type(ValueType) -> ParseString` → handles `\n`, `\\`, `\,`, `\;`
+
+---
+
+### Parser Entry Points (`src/parser/mod.rs`)
+
+```rust
+/// Unfold line continuations per RFC 5545 Section 3.1
+pub fn unfold(input: &str) -> String;
+
+/// Parse with simple errors
+pub fn read_calendar_simple(input: &str) -> Result<Vec<Component<'_>>, nom::error::Error<&str>>;
+
+/// Parse with verbose errors (line numbers)
+pub fn read_calendar(input: &str) -> Result<Calendar<'_>, String>;
+
+/// Parse components without calendar wrapper
+pub fn read_components(input: &str) -> Result<Vec<Component<'_>>, String>;
+```
+
+**Calendar FromStr:**
+```rust
+impl FromStr for crate::Calendar {
+    // Calls unfold() then read_calendar(), converts parser types to builder types
+}
+```
+
+---
+
+### Line Folding (`src/properties.rs`)
+
+RFC 5545 requires lines > 75 octets be folded:
+
+```rust
+pub(crate) fn fold_line(line: &str) -> String;
+```
+
+- Folds at 75-octet boundaries
+- Inserts `\r\n ` (CRLF + space) as continuation
+- Respects UTF-8 character boundaries
+- Avoids breaking on whitespace
+
+---
+
+### Text Escaping (`src/properties.rs`)
+
+For TEXT value type, special characters are escaped:
+
+```rust
+fn escape_text(input: &str) -> String;
+// \ → \\
+// , → \,
+// ; → \;
+// \n → \n (literal backslash-n)
+```
+
+Parameter values containing `:` or `;` are quoted.
+
+---
+
+## Features
+
+| Feature | Description | Dependencies |
+|---------|-------------|--------------|
+| `parser` (default) | Enables iCalendar parsing | `nom`, `nom-language` |
+| `serde` | Serialization support | `serde` |
+| `serde_json` | JSON serialization | `serde_json` |
+| `chrono-tz` | Timezone support, `try_into_utc()` | `chrono-tz` |
+| `time` | Integration with `time` crate | `time` |
+| `strict-dates` | Requires VALUE=DATE param for dates | (compile-time check) |
+
+---
+
+## Code Style
+
+### Formatting
+
+- Use `cargo fmt` before committing
+- Run `cargo clippy --all-features --all-targets -- -D warnings` to check for issues
+
+### Documentation
+
+- Link to RFC sections where applicable: `/// [RFC 5545, Section 3.6.1](https://tools.ietf.org/html/rfc5545#section-3.6.1)`
+- Use doc examples that compile and run
+
+---
+
+## Testing Conventions
+
+### Test Module Organization (Aspirational)
+
+- **Ideal**: Create domain-specific test submodules named `test_<domain>` (e.g., `mod test_parsing`, `mod test_serialization`)
+- **Current**: Most modules use a simple `mod tests` submodule
+- Place test modules at the bottom of the file they test
+
+### Test Function Naming
+
+- **DO NOT** prefix test functions with `test_`
+- Use descriptive names that explain what is being tested:
+  ```rust
+  #[test]
+  fn get_properties_unset() { ... }
+  
+  #[test]
+  fn escape_special_characters_in_text() { ... }
+  ```
+
+### Test Patterns
+
+- Use `pretty_assertions` for better diff output
+- Feature-gate parser tests with `#[cfg(feature = "parser")]`
+- For roundtrip tests, build → serialize → parse → compare
+- Test both set/unset and remove scenarios for properties
+
+### Running Tests
+
+```sh
+# Default features
+cargo test
+
+# All feature combinations (mimics CI)
+just test-all-features
+
+# Specific feature
+cargo test --features chrono-tz
+```
+
+---
+
+## Commit Messages
+
+**Strictly follow Conventional Commits specification:**
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Types
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation only
+- `style`: Formatting, no code change
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `test`: Adding or correcting tests
+- `chore`: Maintenance tasks
+
+### Breaking Changes
+
+Mark breaking changes with `!` after the type:
+```
+feat!: remove deprecated user module
+```
+
+Or in the footer:
+```
+feat: change API signature
+
+BREAKING CHANGE: method now returns Result instead of Option
+```
+
+---
+
+## CI Pipeline
+
+The CI (`just ci`) runs:
+1. `cargo check` (stable, beta, MSRV: stable minus 8 releases)
+2. `cargo check --all-features`
+3. `cargo check --features strict-dates`
+4. Minimal versions check (nightly)
+5. Test matrix across all feature combinations
+6. `cargo fmt --check`
+7. `cargo clippy --all-features -- -D warnings`
+8. `cargo deny check` (advisories, bans, licenses, sources)
+
+---
+
+## Dependency Management
+
+- **Cargo.lock**: Committed to repo
+- **MSRV**: Rust 1.60+
+- **Licenses**: MIT/Apache-2.0 dual license; dependencies must be MIT, Apache-2.0, or Unicode-3.0
+- Use `cargo deny` for security advisories and license compliance
+- `renovate.json` manages automated dependency updates
+
+---
+
+## Release Process
+
+**Releases are managed by humans only.** AI agents should never:
+- Modify version numbers in `Cargo.toml`
+- Create release commits or tags
+- Run `bumpversion.sh`
+- Publish to crates.io
+
+---
+
+## Common Tasks
+
+### Adding a New Property to a Component
+
+1. Add setter method returning `&mut Self`
+2. Add `remove_<property>` method
+3. Add `get_<property>` method
+4. Document with RFC reference
+5. Add tests for set/unset/remove scenarios
+
+### Adding a New Component Type
+
+1. Create new module in `src/components/`
+2. Define struct with `inner: InnerComponent`
+3. Implement via `component_impl!` macro
+4. If it has start/end times, also use `event_impl!`
+5. Add variant to `CalendarComponent` enum
+6. Add `From` implementations for the new type
+7. Export from `lib.rs`
+
+### Working with the Parser
+
+- Parser uses `nom` with `VerboseError` for nice error messages
+- Line unfolding (`unfold()`) must happen before parsing (RFC 5545 Section 3.1)
+- Parsed components produce `parser::Component` which converts to domain types
+- Multi-properties (ATTENDEE, CATEGORIES, etc.) are detected via `MULTIS` constant
+
+---
+
+## Useful Commands
+
+```sh
+# Full CI check locally
+just ci
+
+# Format and fix clippy issues
+just fmt-fix
+just clippy-fix
+
+# Check specific feature combination
+cargo check --no-default-features --features "parser,chrono-tz"
+
+# Run examples
+cargo run --example readme_parse --features parser
+cargo run --example timezone --features chrono-tz
+```
+
+---
+
+## TODO
+
+Known issues and improvements to be addressed:
+
+### Code Organization
+- [ ] Refactor test modules to use domain-specific naming (`mod test_<domain>`) instead of generic `mod tests`
+
+### Documentation
+- [ ] Document `parser::Calendar<'a>` type more thoroughly
+
+### Features
+- [ ] Consider making `serde_json` feature imply `serde` for better ergonomics
