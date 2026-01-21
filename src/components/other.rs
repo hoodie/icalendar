@@ -1,5 +1,6 @@
 use super::*;
 
+/// A general catch-all component.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Other {
     name: String,
