@@ -60,7 +60,10 @@ pub use calendar_component::CalendarComponent;
 /// ```
 ///
 ///
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(into = "crate::parser::Calendar"))]
+#[cfg_attr(feature = "serde", serde(from = "crate::parser::Calendar"))]
 pub struct Calendar {
     /// Top-level calendar properties
     pub properties: Vec<Property>,

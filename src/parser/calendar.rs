@@ -67,7 +67,7 @@ impl From<crate::Calendar> for Calendar<'static> {
     }
 }
 
-impl<C: ComponentTrait> From<C> for Component<'static> {
+impl<C: crate::Component> From<C> for Component<'static> {
     fn from(root: C) -> Self {
         let properties = root
             .properties()
