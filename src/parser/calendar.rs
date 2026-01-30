@@ -49,6 +49,44 @@ impl From<Calendar<'_>> for crate::Calendar {
     }
 }
 
+impl From<crate::Calendar> for Calendar<'static> {
+    fn from(value: crate::Calendar) -> Self {
+        Calendar {
+            components: value
+                .components
+                .into_iter()
+                .map(|cc| match cc {
+                    CalendarComponent::Event(e) => Component::from(e),
+                    CalendarComponent::Todo(t) => Component::from(t),
+                    CalendarComponent::Venue(v) => Component::from(v),
+                    CalendarComponent::Other(o) => Component::from(o),
+                })
+                .collect(),
+            properties: value.properties.into_iter().map(Into::into).collect(),
+        }
+    }
+}
+
+impl<C: ComponentTrait> From<C> for Component<'static> {
+    fn from(root: C) -> Self {
+        let properties = root
+            .properties()
+            .values()
+            .chain(root.multi_properties().values().flatten())
+            .cloned()
+            .map(Into::into)
+            .collect();
+
+        let components = root.components().iter().cloned().map(Into::into).collect();
+
+        Component {
+            name: root.component_kind().into(),
+            properties,
+            components,
+        }
+    }
+}
+
 #[test]
 fn test_calendar_from_parse_calendar() {
     // prove that we don't add additional version/calscale/prodid if those are already there

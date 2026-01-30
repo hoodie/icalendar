@@ -52,6 +52,15 @@ impl From<Parameter<'_>> for crate::properties::Parameter {
     }
 }
 
+impl From<crate::properties::Parameter> for Parameter<'static> {
+    fn from(parameter: crate::properties::Parameter) -> Self {
+        Parameter {
+            key: parameter.key().to_owned().into(),
+            val: Some(parameter.value().to_owned().into()),
+        }
+    }
+}
+
 #[test]
 fn test_parameter() {
     assert_parser!(

@@ -116,6 +116,21 @@ impl From<Property<'_>> for crate::Property {
     }
 }
 
+impl From<crate::Property> for Property<'static> {
+    fn from(property: crate::Property) -> Self {
+        Property {
+            name: property.key().to_owned().into(),
+            val: property.value().to_owned().into(),
+            params: property
+                .params()
+                .values()
+                .cloned()
+                .map(Into::into)
+                .collect(),
+        }
+    }
+}
+
 impl FromStr for crate::Property {
     type Err = String;
 
