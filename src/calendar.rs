@@ -1,7 +1,7 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
-use crate::{components::*, Parameter, Property};
+use crate::{Parameter, Property, components::*};
 
 mod calendar_component;
 
@@ -354,11 +354,12 @@ fn from_adds_default_properties() {
     assert!(cal.property_value("CALSCALE").is_some());
     assert!(cal.property_value("PRODID").is_some());
 
-    assert!(cal
-        .property_value("VERSION")
-        .and(cal.property_value("PRODID"))
-        .and(cal.property_value("CALSCALE"))
-        .is_some());
+    assert!(
+        cal.property_value("VERSION")
+            .and(cal.property_value("PRODID"))
+            .and(cal.property_value("CALSCALE"))
+            .is_some()
+    );
 }
 
 #[cfg(test)]

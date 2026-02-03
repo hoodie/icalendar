@@ -1,5 +1,5 @@
 #![cfg(feature = "parser")]
-use icalendar::{parser::unfold, Calendar};
+use icalendar::{Calendar, parser::unfold};
 
 mod example_utils;
 use example_utils::*;
