@@ -1,4 +1,5 @@
 use nom::{
+    Err, IResult, Parser,
     branch::alt,
     bytes::complete::{tag_no_case, take_while},
     character::complete::line_ending,
@@ -6,7 +7,6 @@ use nom::{
     error::{ContextError, ParseError},
     multi::many0,
     sequence::{delimited, preceded},
-    Err, IResult, Parser,
 };
 
 use super::parsed_string::ParseString;
