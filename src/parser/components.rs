@@ -70,7 +70,8 @@ pub(crate) trait LikeComponent<'a> {
     fn fmt_write<W: fmt::Write>(&'a self, out: &mut W) -> Result<(), fmt::Error> {
         write_crlf!(out, "BEGIN:{}", self.name())?;
 
-        if self.name().to_lowercase() == "calendar" {
+        // RFC 5545 requires DTSTAMP and UID for VEVENT, VTODO, VJOURNAL, and VFREEBUSY
+        if matches!(self.name(), "VEVENT" | "VTODO" | "VJOURNAL" | "VFREEBUSY") {
             if !self
                 .properties()
                 .iter()

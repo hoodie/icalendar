@@ -105,3 +105,35 @@ build-all:
 # Build release version
 build-release:
     cargo build --release
+
+# ============================================================================
+# Benchmarking
+# ============================================================================
+
+# Run all benchmarks
+bench:
+    cargo bench --bench icalendar_benchmarks
+
+# Run benchmarks and save as baseline
+bench-save name="before":
+    cargo bench --bench icalendar_benchmarks -- --save-baseline {{name}}
+
+# Run benchmarks and compare to baseline
+bench-compare name="before":
+    cargo bench --bench icalendar_benchmarks -- --baseline {{name}}
+
+# Run allocation profiling (simple counter)
+bench-alloc:
+    cargo build --release --bench allocation_profile && ./target/release/deps/allocation_profile-*
+
+# Run allocation profiling with dhat (detailed)
+bench-alloc-dhat:
+    cargo run --release --bench allocation_profile --features dhat-heap
+
+# Run quick benchmark (fewer iterations)
+bench-quick:
+    cargo bench --bench icalendar_benchmarks -- --quick
+
+# Open benchmark report in browser
+bench-report:
+    open target/criterion/report/index.html
