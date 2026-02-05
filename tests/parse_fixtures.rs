@@ -70,3 +70,16 @@ fn parse_fixtures_icalendar_rb_bad_utf8() {
     })
     .unwrap();
 }
+
+#[test]
+fn parse_fixture_rfc9073_concert() {
+    let path = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
+        .join("fixtures")
+        .join("rfc9073")
+        .join("concert.ics");
+    let fixture = std::fs::read_to_string(path).unwrap();
+    if let Err(error) = read_calendar(&unfold(&fixture)) {
+        println!("{error}");
+        panic!("test failed");
+    }
+}

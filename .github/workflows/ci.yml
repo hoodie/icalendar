@@ -58,7 +58,8 @@ jobs:
           - "parser,time"
           - "chrono-tz"  # works without parser
           - "time"  # works without parser
-          - "parser,serde_json,chrono-tz,time"  # all features combined
+          - "parser,rfc9073"  # RFC9073 Event Publishing Extensions
+          - "parser,serde_json,chrono-tz,time,rfc9073"  # all features combined
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable

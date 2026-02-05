@@ -11,7 +11,7 @@
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/icalendar/)
 [![license](https://img.shields.io/crates/l/icalendar.svg?style=flat)](https://crates.io/crates/icalendar/)
 
-A builder and parser for [`rfc5545`](http://tools.ietf.org/html/rfc5545) iCalendar.
+A builder and parser for [`rfc5545`](http://tools.ietf.org/html/rfc5545) iCalendar, with support for [`rfc9073`](https://www.rfc-editor.org/rfc/rfc9073.html) event publishing extensions.
 
 </div>
 
@@ -130,7 +130,14 @@ for component in &parsed_calendar.components {
 ```
 
 ## Structure
-A [`Calendar`] represents a full calendar, which contains multiple [`Component`]s. These may be either [`Event`]s, [`Todo`]s, or [`Venue`]s. Components in turn have [`Property`]s, which may have [`Parameter`]s.
+A [`Calendar`] represents a full calendar, which contains multiple [`Component`]s. These may be either [`Event`]s, [`Todo`]s, or (with the `rfc9073` feature) [`Participant`]s, [`Location`]s, and [`Resource`]s. Components in turn have [`Property`]s, which may have [`Parameter`]s.
+
+## Features
+
+- **`parser`** (default): Enables parsing iCalendar files
+- **`rfc9073`** (default): Enables [RFC9073](https://www.rfc-editor.org/rfc/rfc9073.html) event publishing extensions (`Participant`, `Location`, `Resource` components)
+- **`chrono-tz`**: Timezone support via the `chrono-tz` crate
+- **`serde`**: Serialization/deserialization support
 
 ## License
 

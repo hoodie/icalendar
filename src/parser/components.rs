@@ -159,11 +159,20 @@ impl From<Component<'_>> for InnerComponent {
 
 impl<'a> From<Component<'a>> for CalendarComponent {
     fn from(component: Component<'a>) -> CalendarComponent {
+        #[cfg(feature = "rfc9073")]
+        use crate::components::{Location, Participant, Resource};
         use crate::{Event, Todo, Venue};
+
         match component.name.as_ref() {
             "VEVENT" => Event::from(InnerComponent::from(component)).into(),
             "VTODO" => Todo::from(InnerComponent::from(component)).into(),
             "VVENUE" => Venue::from(InnerComponent::from(component)).into(),
+            #[cfg(feature = "rfc9073")]
+            "PARTICIPANT" => Participant::from(InnerComponent::from(component)).into(),
+            #[cfg(feature = "rfc9073")]
+            "VLOCATION" => Location::from(InnerComponent::from(component)).into(),
+            #[cfg(feature = "rfc9073")]
+            "VRESOURCE" => Resource::from(InnerComponent::from(component)).into(),
             _ => Other::from((component.name.to_string(), InnerComponent::from(component))).into(),
         }
     }
