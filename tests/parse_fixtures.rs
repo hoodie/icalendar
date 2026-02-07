@@ -70,3 +70,20 @@ fn parse_fixtures_icalendar_rb_bad_utf8() {
     })
     .unwrap();
 }
+
+#[test]
+#[cfg(all(feature = "serde", feature = "serde_json"))]
+fn serialize_to_json() {
+    with_all_fixtures("", |path| {
+        let fixture = std::fs::read_to_string(path).unwrap();
+        let unfolded = unfold(&fixture);
+        let parse_calendar = read_calendar(&unfolded).unwrap();
+        let crate_calendar = icalendar::Calendar::from(parse_calendar.clone());
+
+        let parse_json = serde_json::to_string_pretty(&parse_calendar).unwrap();
+        let crate_json = serde_json::to_string_pretty(&crate_calendar).unwrap();
+
+        assert_eq!(parse_json, crate_json);
+    })
+    .unwrap();
+}
