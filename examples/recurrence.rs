@@ -27,6 +27,7 @@ fn main() {
     let all_occurences = my_event
         .get_recurrence()
         .unwrap()
+        .unwrap()
         .all(RECURRENCE_LIMIT)
         .dates;
 

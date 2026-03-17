@@ -2,6 +2,13 @@
 use chrono::{DateTime, TimeZone};
 use icalendar::{rrule::Tz, Calendar, CalendarComponent, EventLike};
 
+fn naive_dates(dates: &[DateTime<Tz>]) -> Vec<String> {
+    dates
+        .iter()
+        .map(|dt| dt.naive_local().format("%Y-%m-%dT%H:%M:%S").to_string())
+        .collect()
+}
+
 const TEST_CALENDAR_STR: &str = r#"
 BEGIN:VCALENDAR
 VERSION:2.0
@@ -34,11 +41,12 @@ fn parse_recurrence() {
     // tests recurrence handling for all-day events (dates) and datetimes
 
     // all-day: calendar string excludes 2nd and 3rd as EXDATE, but includes 30th and 31st as RDATE
-    let expected_datetimes_a = vec![
-        Tz::UTC.with_ymd_and_hms(2024, 12, 30, 0, 0, 0).unwrap(),
-        Tz::UTC.with_ymd_and_hms(2024, 12, 31, 0, 0, 0).unwrap(),
-        Tz::UTC.with_ymd_and_hms(2025, 1, 1, 0, 0, 0).unwrap(),
-        Tz::UTC.with_ymd_and_hms(2025, 1, 4, 0, 0, 0).unwrap(),
+    // Bare DATE-only DTSTART has no TZID, so rrule treats it as local/floating — compare naive dates only.
+    let expected_naive_dates_a = vec![
+        "2024-12-30T00:00:00",
+        "2024-12-31T00:00:00",
+        "2025-01-01T00:00:00",
+        "2025-01-04T00:00:00",
     ];
 
     // time-based: calendar string excludes 2nd as EXDATE and does NOT exclude 3rd, and includes 31st as RDATE
@@ -58,9 +66,10 @@ fn parse_recurrence() {
     };
     let rrules = event
         .get_recurrence()
-        .expect("event should have recurrence rules");
+        .expect("event should have recurrence rules")
+        .expect("recurrence rules should parse successfully");
     let datetimes: Vec<DateTime<Tz>> = rrules.all(10).dates;
-    assert_eq!(datetimes, expected_datetimes_a);
+    assert_eq!(naive_dates(&datetimes), expected_naive_dates_a);
 
     let event = match calendar.components.get(1) {
         Some(CalendarComponent::Event(event)) => event,
@@ -68,7 +77,8 @@ fn parse_recurrence() {
     };
     let rrules = event
         .get_recurrence()
-        .expect("event should have recurrence rules");
+        .expect("event should have recurrence rules")
+        .expect("recurrence rules should parse successfully");
     let datetimes: Vec<DateTime<Tz>> = rrules.all(10).dates;
     assert_eq!(datetimes, expected_datetimes_b);
 }
