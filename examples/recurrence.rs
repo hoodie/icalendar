@@ -1,15 +1,12 @@
 #![cfg(feature = "recurrence")]
-use chrono::*;
+use chrono::NaiveDate;
 use icalendar::*;
 
 // maximum number of events accepted
 const RECURRENCE_LIMIT: u16 = u16::MAX;
 
 fn main() {
-    let dt_start = rrule::Tz::Europe__London
-        .with_ymd_and_hms(2025, 3, 17, 0, 0, 0)
-        .unwrap();
-
+    // Note: .all_day() sets DTSTART; .recurrence() derives the start time from it automatically.
     let my_event = Event::new()
         .all_day(NaiveDate::from_ymd_opt(2025, 3, 17).unwrap())
         .summary("weekly event")
@@ -18,10 +15,9 @@ fn main() {
             rrule::RRule::default()
                 .count(4)
                 .freq(rrule::Frequency::Weekly)
-                .by_weekday(vec![rrule::NWeekday::Every(rrule::Weekday::Mon)])
-                .build(dt_start)
-                .unwrap(),
+                .by_weekday(vec![rrule::NWeekday::Every(rrule::Weekday::Mon)]),
         )
+        .expect("DTSTART must be set and the rule must be valid")
         .done();
 
     let all_occurences = my_event

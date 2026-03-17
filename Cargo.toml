@@ -20,7 +20,7 @@ exclude = ["fixtures", ".github", ".gitignore", "*.json"]
 default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
 strict-dates = []
-recurrence = ["dep:rrule"]
+recurrence = ["dep:rrule", "dep:chrono-tz"]
 
 [dependencies]
 serde = { version = "1.0.228", optional = true, features = ["derive"] }
@@ -43,7 +43,7 @@ version = "0.1"
 optional = true
 
 [dependencies.rrule]
-version = "0.13"
+version = "0.14"
 optional = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.uuid]

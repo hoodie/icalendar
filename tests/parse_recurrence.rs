@@ -1,6 +1,6 @@
 #![cfg(feature = "recurrence")]
 use chrono::{DateTime, TimeZone};
-use icalendar::{rrule::Tz, Calendar, CalendarComponent, EventLike};
+use icalendar::{Calendar, CalendarComponent, EventLike, rrule::Tz};
 
 fn naive_dates(dates: &[DateTime<Tz>]) -> Vec<String> {
     dates
