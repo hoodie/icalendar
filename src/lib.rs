@@ -58,7 +58,7 @@ pub use crate::{
 };
 
 #[cfg(feature = "recurrence")]
-pub use rrule;
+pub use rrule::{Frequency, NWeekday, RRule, RRuleError, RRuleSet, Tz, Unvalidated, Weekday};
 
 #[cfg(feature = "chrono-tz")]
 pub use crate::components::date_time::ymd_hm_tzid;

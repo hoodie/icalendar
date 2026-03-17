@@ -808,7 +808,7 @@ mod tests {
     #[test]
     #[cfg(feature = "recurrence")]
     fn get_recurrence() {
-        use crate::rrule::{Frequency, NWeekday, RRule, Weekday};
+        use crate::{Frequency, NWeekday, RRule, Weekday};
 
         let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
 
@@ -843,7 +843,6 @@ mod tests {
 
 #[cfg(all(test, feature = "recurrence", feature = "parser"))]
 mod test_recurrence_tzid {
-    use crate::rrule::{Frequency, RRule, Tz, Unvalidated};
     use crate::{CalendarComponent, Event, EventLike};
     use crate::{Frequency, RRule, Tz, Unvalidated};
 
@@ -857,8 +856,7 @@ mod test_recurrence_tzid {
     #[test]
     fn tzid_dtstart_preserves_timezone() {
         use crate::components::date_time::CalendarDateTime;
-        use crate::rrule::NWeekday;
-        use crate::rrule::Weekday;
+        use crate::{NWeekday, Weekday};
         use chrono::NaiveDate;
 
         let rrule = RRule::default()
@@ -897,8 +895,7 @@ mod test_recurrence_tzid {
     fn tzid_dtstart_round_trips_through_serialization() {
         use crate::Calendar;
         use crate::components::date_time::CalendarDateTime;
-        use crate::rrule::NWeekday;
-        use crate::rrule::Weekday;
+        use crate::{NWeekday, Weekday};
         use chrono::NaiveDate;
 
         let rrule = RRule::default()
@@ -975,10 +972,7 @@ mod test_recurrence_tzid {
 
 #[cfg(all(test, feature = "recurrence"))]
 mod test_recurrence_errors {
-    use crate::rrule::{Frequency, RRule};
-    use crate::{Event, EventLike};
-    use chrono::{TimeZone as _, Utc};
-    use crate::{Frequency, RRule};
+    use crate::{Event, EventLike as _, Frequency, RRule};
     use chrono::{TimeZone as _, Utc};
 
     /// An event with no RRULE property should return None.

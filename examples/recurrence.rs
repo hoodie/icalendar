@@ -12,10 +12,10 @@ fn main() {
         .summary("weekly event")
         .description("this event happens every Monday for four weeks")
         .recurrence(
-            rrule::RRule::default()
+            RRule::default()
                 .count(4)
-                .freq(rrule::Frequency::Weekly)
-                .by_weekday(vec![rrule::NWeekday::Every(rrule::Weekday::Mon)]),
+                .freq(Frequency::Weekly)
+                .by_weekday(vec![NWeekday::Every(Weekday::Mon)]),
         )
         .expect("DTSTART must be set and the rule must be valid")
         .done();
