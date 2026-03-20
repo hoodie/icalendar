@@ -20,7 +20,8 @@ exclude = ["fixtures", ".github", ".gitignore", "*.json"]
 default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
 strict-dates = []
-recurrence = ["dep:rrule", "dep:chrono-tz"]
+chrono-tz = ["dep:chrono-tz"]
+recurrence = ["dep:rrule", "chrono-tz"]
 
 [dependencies]
 serde = { version = "1.0.228", optional = true, features = ["derive"] }
@@ -68,7 +69,7 @@ required-features = ["parser"]
 [[example]]
 name = "readme_parse"
 path = "examples/readme-parse.rs"
-required-features = ["parser"]
+required-features = ["parser", "chrono-tz"]
 
 [[example]]
 name = "parse_advanced"
