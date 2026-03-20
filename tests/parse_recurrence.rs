@@ -1,4 +1,4 @@
-#![cfg(feature = "recurrence")]
+#![cfg(all(feature = "recurrence", feature = "parser"))]
 use chrono::{DateTime, TimeZone};
 use icalendar::{Calendar, CalendarComponent, EventLike, Tz};
 

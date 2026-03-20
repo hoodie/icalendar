@@ -109,4 +109,4 @@ required-features = ["recurrence"]
 [[example]]
 name = "recurrence_parse"
 path = "examples/recurrence_parse.rs"
-required-features = ["recurrence"]
+required-features = ["recurrence", "parser"]
