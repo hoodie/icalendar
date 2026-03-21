@@ -66,8 +66,7 @@ fn parse_recurrence() {
     };
     let rrules = event
         .get_recurrence()
-        .expect("event should have recurrence rules")
-        .expect("recurrence rules should parse successfully");
+        .expect("event should have recurrence rules");
     let datetimes: Vec<DateTime<Tz>> = rrules.all(10).dates;
     assert_eq!(naive_dates(&datetimes), expected_naive_dates_a);
 
@@ -77,8 +76,7 @@ fn parse_recurrence() {
     };
     let rrules = event
         .get_recurrence()
-        .expect("event should have recurrence rules")
-        .expect("recurrence rules should parse successfully");
+        .expect("event should have recurrence rules");
     let datetimes: Vec<DateTime<Tz>> = rrules.all(10).dates;
     assert_eq!(datetimes, expected_datetimes_b);
 }

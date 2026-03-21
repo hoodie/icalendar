@@ -514,10 +514,26 @@ pub trait EventLike: Component {
 
     /// Get recurrence rules.
     ///
+    /// Returns `None` if no `RRULE` property is present on this component, or if the
+    /// rule could not be parsed. Use [`try_recurrence`](EventLike::try_recurrence) if
+    /// you need to distinguish between the two cases or want to inspect the parse error.
+    #[cfg(feature = "recurrence")]
+    fn get_recurrence(&self) -> Option<RRuleSet> {
+        self.try_recurrence()?.ok()
+    }
+
+    /// Get recurrence rules, returning a parse error if the `RRULE` property is present
+    /// but invalid.
+    ///
     /// Returns `None` if no `RRULE` property is present on this component.
     /// Returns `Some(Err(_))` if an `RRULE` is present but could not be parsed.
+    /// Returns `Some(Ok(_))` if the rule was parsed successfully.
+    ///
+    /// Prefer [`get_recurrence`](EventLike::get_recurrence) for the common case where you
+    /// trust the data source. Use this variant when working with parsed `.ics` input that
+    /// you did not produce yourself and want to surface errors to the caller.
     #[cfg(feature = "recurrence")]
-    fn get_recurrence(&self) -> Option<Result<RRuleSet, RRuleError>> {
+    fn try_recurrence(&self) -> Option<Result<RRuleSet, RRuleError>> {
         let dt_start_prop = self.properties().get("DTSTART")?;
         // rrule's parser only understands DTSTART with an optional TZID parameter.
         // Other parameters like VALUE=DATE must be omitted, otherwise rrule misinterprets them.
@@ -827,7 +843,9 @@ mod tests {
             .unwrap()
             .done();
 
-        let output = event.get_recurrence().unwrap().unwrap();
+        let output = event
+            .get_recurrence()
+            .expect("event should have a recurrence rule");
 
         let output_rrules = output.get_rrule();
 
@@ -878,7 +896,9 @@ mod test_recurrence_tzid {
             .unwrap()
             .done();
 
-        let rrule_set_out = event.get_recurrence().unwrap().unwrap();
+        let rrule_set_out = event
+            .get_recurrence()
+            .expect("event should have a recurrence rule");
         let dates = rrule_set_out.all(10).dates;
 
         assert_eq!(dates.len(), 3);
@@ -917,7 +937,11 @@ mod test_recurrence_tzid {
             .unwrap()
             .done();
 
-        let original_dates = event.get_recurrence().unwrap().unwrap().all(10).dates;
+        let original_dates = event
+            .get_recurrence()
+            .expect("event should have a recurrence rule")
+            .all(10)
+            .dates;
 
         // Serialize → parse back
         let mut calendar = Calendar::new();
@@ -939,8 +963,7 @@ mod test_recurrence_tzid {
 
         let reparsed_dates = reparsed_event
             .get_recurrence()
-            .unwrap()
-            .unwrap()
+            .expect("reparsed event should have a recurrence rule")
             .all(10)
             .dates;
 
@@ -962,7 +985,11 @@ mod test_recurrence_tzid {
             .unwrap()
             .done();
 
-        let dates = event.get_recurrence().unwrap().unwrap().all(10).dates;
+        let dates = event
+            .get_recurrence()
+            .expect("event should have a recurrence rule")
+            .all(10)
+            .dates;
         assert_eq!(dates.len(), 4);
         for dt in &dates {
             assert_eq!(dt.timezone(), Tz::UTC);
@@ -983,23 +1010,25 @@ mod test_recurrence_errors {
             .done();
 
         assert!(event.get_recurrence().is_none());
+        assert!(event.try_recurrence().is_none());
     }
 
-    /// An event with a valid RRULE should return Some(Ok(_)).
+    /// An event with a valid RRULE should return Some(_) / Some(Ok(_)).
     #[test]
-    fn valid_rrule_returns_some_ok() {
+    fn valid_rrule_returns_some() {
         let event = Event::new()
             .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
             .recurrence(RRule::default().count(3).freq(Frequency::Daily))
             .unwrap()
             .done();
 
-        assert!(matches!(event.get_recurrence(), Some(Ok(_))));
+        assert!(event.get_recurrence().is_some());
+        assert!(matches!(event.try_recurrence(), Some(Ok(_))));
     }
 
-    /// An event with a syntactically invalid RRULE value should return Some(Err(_)).
+    /// An event with a syntactically invalid RRULE value should return None / Some(Err(_)).
     #[test]
-    fn invalid_rrule_returns_some_err() {
+    fn invalid_rrule_returns_none_and_some_err() {
         use crate::Component;
 
         let event = Event::new()
@@ -1007,6 +1036,7 @@ mod test_recurrence_errors {
             .add_property("RRULE", "THIS IS NOT VALID")
             .done();
 
-        assert!(matches!(event.get_recurrence(), Some(Err(_))));
+        assert!(event.get_recurrence().is_none());
+        assert!(matches!(event.try_recurrence(), Some(Err(_))));
     }
 }

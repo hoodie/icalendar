@@ -20,12 +20,11 @@ fn main() {
         .expect("DTSTART must be set and the rule must be valid")
         .done();
 
-    let all_occurences = my_event
+    let all_occurrences = my_event
         .get_recurrence()
-        .unwrap()
-        .unwrap()
+        .expect("event should have a recurrence rule")
         .all(RECURRENCE_LIMIT)
         .dates;
 
-    println!("{:#?}", all_occurences);
+    println!("{:#?}", all_occurrences);
 }
