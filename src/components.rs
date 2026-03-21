@@ -1,6 +1,6 @@
 use chrono::{DateTime, NaiveDate, Utc};
 #[cfg(feature = "recurrence")]
-use rrule::{RRule, RRuleError, RRuleSet, Unvalidated};
+use rrule::{RRuleError, RRuleSet};
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -447,7 +447,7 @@ pub trait EventLike: Component {
     /// Returns `Err` if `DTSTART` is missing, the timezone name is unrecognised, or
     /// the rule fails rrule's own validation.
     #[cfg(feature = "recurrence")]
-    fn recurrence(&mut self, rrule: RRule<Unvalidated>) -> Result<&mut Self, RRuleError> {
+    fn recurrence(&mut self, rrule: crate::UnvalidatedRRule) -> Result<&mut Self, RRuleError> {
         use chrono::TimeZone as _;
         use date_time::{CalendarDateTime, DatePerhapsTime};
 
@@ -862,10 +862,10 @@ mod tests {
 #[cfg(all(test, feature = "recurrence", feature = "parser"))]
 mod test_recurrence_tzid {
     use crate::{CalendarComponent, Event, EventLike};
-    use crate::{Frequency, RRule, Tz, Unvalidated};
+    use crate::{Frequency, RRule, Tz, UnvalidatedRRule};
 
     /// Builds an unbuilt weekly `RRule` for UTC tests.
-    fn weekly_utc_rrule() -> RRule<Unvalidated> {
+    fn weekly_utc_rrule() -> UnvalidatedRRule {
         RRule::default().count(4).freq(Frequency::Weekly)
     }
 
