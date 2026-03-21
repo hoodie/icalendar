@@ -21,7 +21,7 @@ default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
 strict-dates = []
 chrono-tz = ["dep:chrono-tz"]
-recurrence = ["dep:rrule", "chrono-tz"]
+recurrence = ["dep:rrule", "chrono-tz", "dep:thiserror"]
 
 [dependencies]
 serde = { version = "1.0.228", optional = true, features = ["derive"] }
@@ -29,6 +29,7 @@ serde_json = { version = "1.0.149", optional = true }
 iso8601 = "0.6"
 chrono-tz = { version = "0.10", optional = true }
 time = { version = "0.3.46", optional = true }
+thiserror = { version = "2.0.18", optional = true }
 
 [dependencies.chrono]
 version = "0.4.43"

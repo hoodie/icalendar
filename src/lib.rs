@@ -44,6 +44,8 @@ mod components;
 #[cfg(feature = "parser")]
 pub mod parser;
 mod properties;
+#[cfg(feature = "recurrence")]
+mod recurrence;
 mod value_types;
 
 pub use crate::{
@@ -58,7 +60,10 @@ pub use crate::{
 };
 
 #[cfg(feature = "recurrence")]
-pub use rrule::{Frequency, NWeekday, RRule, RRuleError, RRuleSet, Tz, Weekday};
+pub use rrule::{Frequency, NWeekday, RRule, RRuleSet, Tz, Weekday};
+
+#[cfg(feature = "recurrence")]
+pub use crate::recurrence::RecurrenceError;
 
 #[cfg(feature = "recurrence")]
 use rrule::Unvalidated;

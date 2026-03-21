@@ -1,6 +1,8 @@
+#[cfg(feature = "recurrence")]
+use crate::recurrence::RecurrenceError;
 use chrono::{DateTime, NaiveDate, Utc};
 #[cfg(feature = "recurrence")]
-use rrule::{RRuleError, RRuleSet};
+use rrule::RRuleSet;
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -447,14 +449,15 @@ pub trait EventLike: Component {
     /// Returns `Err` if `DTSTART` is missing, the timezone name is unrecognised, or
     /// the rule fails rrule's own validation.
     #[cfg(feature = "recurrence")]
-    fn recurrence(&mut self, rrule: crate::UnvalidatedRRule) -> Result<&mut Self, RRuleError> {
+    fn recurrence(&mut self, rrule: crate::UnvalidatedRRule) -> Result<&mut Self, RecurrenceError> {
         use chrono::TimeZone as _;
         use date_time::{CalendarDateTime, DatePerhapsTime};
 
         // Derive dt_start from whatever DTSTART is already on the component.
-        let dt_start_prop = self.properties().get("DTSTART").ok_or_else(|| {
-            RRuleError::new_iter_err("DTSTART must be set before calling recurrence()")
-        })?;
+        let dt_start_prop = self
+            .properties()
+            .get("DTSTART")
+            .ok_or(RecurrenceError::MissingDtStart)?;
 
         let dt_start: DateTime<rrule::Tz> = match DatePerhapsTime::from_property(dt_start_prop) {
             Some(DatePerhapsTime::DateTime(CalendarDateTime::Utc(utc))) => {
@@ -463,11 +466,11 @@ pub trait EventLike: Component {
             Some(DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone { date_time, tzid })) => {
                 let tz: rrule::Tz = tzid
                     .parse::<chrono_tz::Tz>()
-                    .map_err(|_| RRuleError::new_iter_err("unrecognised TZID in DTSTART"))?
+                    .map_err(|_| RecurrenceError::InvalidTimezone(tzid.clone()))?
                     .into();
-                tz.from_local_datetime(&date_time).single().ok_or_else(|| {
-                    RRuleError::new_iter_err("ambiguous or invalid local datetime for DTSTART TZID")
-                })?
+                tz.from_local_datetime(&date_time)
+                    .single()
+                    .ok_or(RecurrenceError::AmbiguousDateTime)?
             }
             Some(DatePerhapsTime::DateTime(CalendarDateTime::Floating(naive))) => {
                 // Floating datetimes have no timezone — use UTC as a best-effort interpretation.
@@ -478,7 +481,7 @@ pub trait EventLike: Component {
                 rrule::Tz::UTC.from_utc_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
             }
             None => {
-                return Err(RRuleError::new_iter_err("could not parse DTSTART property"));
+                return Err(RecurrenceError::InvalidDtStart);
             }
         };
 
@@ -533,7 +536,7 @@ pub trait EventLike: Component {
     /// trust the data source. Use this variant when working with parsed `.ics` input that
     /// you did not produce yourself and want to surface errors to the caller.
     #[cfg(feature = "recurrence")]
-    fn try_recurrence(&self) -> Option<Result<RRuleSet, RRuleError>> {
+    fn try_recurrence(&self) -> Option<Result<RRuleSet, RecurrenceError>> {
         let dt_start_prop = self.properties().get("DTSTART")?;
         // rrule's parser only understands DTSTART with an optional TZID parameter.
         // Other parameters like VALUE=DATE must be omitted, otherwise rrule misinterprets them.
@@ -569,7 +572,7 @@ pub trait EventLike: Component {
         }
 
         let rrules = format!("{dt_start_str}\nRRULE:{rrule_str}{rdates_str}{exdates_str}");
-        Some(rrules.parse::<RRuleSet>())
+        Some(rrules.parse::<RRuleSet>().map_err(RecurrenceError::Rule))
     }
 
     /// Set the ALARM for this event
@@ -999,7 +1002,7 @@ mod test_recurrence_tzid {
 
 #[cfg(all(test, feature = "recurrence"))]
 mod test_recurrence_errors {
-    use crate::{Event, EventLike as _, Frequency, RRule};
+    use crate::{Event, EventLike as _, Frequency, RRule, RecurrenceError};
     use chrono::{TimeZone as _, Utc};
 
     /// An event with no RRULE property should return None.
@@ -1037,6 +1040,41 @@ mod test_recurrence_errors {
             .done();
 
         assert!(event.get_recurrence().is_none());
-        assert!(matches!(event.try_recurrence(), Some(Err(_))));
+        assert!(matches!(
+            event.try_recurrence(),
+            Some(Err(RecurrenceError::Rule(_)))
+        ));
+    }
+
+    /// Calling `recurrence()` before setting DTSTART should return `MissingDtStart`.
+    #[test]
+    fn missing_dtstart_returns_error() {
+        let mut event = Event::new();
+        let result = event.recurrence(RRule::default().freq(Frequency::Daily));
+        assert!(matches!(result, Err(RecurrenceError::MissingDtStart)));
+    }
+
+    /// An unrecognised TZID in DTSTART should return `InvalidTimezone`.
+    #[test]
+    fn invalid_timezone_returns_error() {
+        use crate::components::date_time::CalendarDateTime;
+        use chrono::NaiveDate;
+
+        let dt_start = CalendarDateTime::WithTimezone {
+            date_time: NaiveDate::from_ymd_opt(2025, 1, 1)
+                .unwrap()
+                .and_hms_opt(9, 0, 0)
+                .unwrap(),
+            tzid: "Not/ATimezone".to_string(),
+        };
+
+        let mut event = Event::new();
+        event.starts(dt_start);
+        let result = event.recurrence(RRule::default().freq(Frequency::Daily));
+
+        assert!(matches!(
+            result,
+            Err(RecurrenceError::InvalidTimezone(tz)) if tz == "Not/ATimezone"
+        ));
     }
 }
