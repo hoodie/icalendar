@@ -508,9 +508,13 @@ pub trait EventLike: Component {
             .collect::<Vec<_>>()
             .join(",");
 
-        self.add_property("RRULE", rrule_str)
-            .add_multi_property("RDATE", &rdates)
-            .add_multi_property("EXDATE", &exdates);
+        self.add_property("RRULE", rrule_str);
+        if !rdates.is_empty() {
+            self.add_multi_property("RDATE", &rdates);
+        }
+        if !exdates.is_empty() {
+            self.add_multi_property("EXDATE", &exdates);
+        }
 
         Ok(self)
     }
@@ -1076,5 +1080,56 @@ mod test_recurrence_errors {
             result,
             Err(RecurrenceError::InvalidTimezone(tz)) if tz == "Not/ATimezone"
         ));
+    }
+}
+
+#[cfg(all(test, feature = "recurrence"))]
+mod test_recurrence_properties {
+    use crate::{Component, Event, EventLike as _, Frequency, RRule};
+    use chrono::{TimeZone as _, Utc};
+
+    /// Calling `recurrence()` without any RDATEs or EXDATEs must not write
+    /// blank `RDATE` or `EXDATE` multi-properties onto the component.
+    #[test]
+    fn no_spurious_rdate_or_exdate_properties() {
+        let event = Event::new()
+            .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
+            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
+            .unwrap()
+            .done();
+
+        let multi = event.multi_properties();
+        assert!(
+            !multi.contains_key("RDATE"),
+            "RDATE should not be present when no RDATEs were supplied"
+        );
+        assert!(
+            !multi.contains_key("EXDATE"),
+            "EXDATE should not be present when no EXDATEs were supplied"
+        );
+    }
+
+    /// The absence of blank RDATE/EXDATE properties must also hold in the
+    /// serialized ICS output — no blank-value lines should appear.
+    #[test]
+    fn serialized_output_contains_no_blank_rdate_or_exdate() {
+        let event = Event::new()
+            .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
+            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
+            .unwrap()
+            .done();
+
+        let ics = event.to_string();
+        for line in ics.lines() {
+            let key = line.split(':').next().unwrap_or("");
+            assert!(
+                key != "RDATE",
+                "unexpected blank RDATE line in serialized output"
+            );
+            assert!(
+                key != "EXDATE",
+                "unexpected blank EXDATE line in serialized output"
+            );
+        }
     }
 }
