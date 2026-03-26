@@ -180,7 +180,7 @@ impl Property {
     }
 
     /// Writes this Property to `out`
-    pub(crate) fn fmt_write<W: Write>(&self, out: &mut W) -> Result<(), fmt::Error> {
+    pub(crate) fn to_line(&self) -> Result<String, fmt::Error> {
         // A nice starting capacity for the majority of content lines
         let mut line = String::with_capacity(150);
 
@@ -193,6 +193,12 @@ impl Property {
             Some(ValueType::Text) => write!(line, ":{}", Self::escape_text(&self.val))?,
             _ => write!(line, ":{}", self.val)?,
         }
+        Ok(line)
+    }
+
+    /// Writes this Property to `out`
+    pub(crate) fn fmt_write<W: Write>(&self, out: &mut W) -> Result<(), fmt::Error> {
+        let line = self.to_line()?;
         write_crlf!(out, "{}", fold_line(&line))?;
         Ok(())
     }
