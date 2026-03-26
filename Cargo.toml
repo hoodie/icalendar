@@ -28,11 +28,11 @@ serde = { version = "1.0.228", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.149", optional = true }
 iso8601 = "0.6"
 chrono-tz = { version = "0.10", optional = true }
-time = { version = "0.3.46", optional = true }
+time = { version = "0.3.47", optional = true }
 thiserror = { version = "2.0.18", optional = true }
 
 [dependencies.chrono]
-version = "0.4.43"
+version = "0.4.44"
 default-features = false
 features = ["clock", "std", "wasmbind"]
 
@@ -103,9 +103,14 @@ path = "examples/timezone.rs"
 required-features = ["chrono-tz"]
 
 [[example]]
-name = "recurrence"
-path = "examples/recurrence.rs"
+name = "recurrence_all_day"
+path = "examples/recurrence_all_day.rs"
 required-features = ["recurrence"]
+
+[[example]]
+name = "recurrence_with_tz"
+path = "examples/recurrence_with_tz.rs"
+required-features = ["recurrence", "chrono-tz"]
 
 [[example]]
 name = "recurrence_parse"
