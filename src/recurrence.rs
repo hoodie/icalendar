@@ -37,13 +37,15 @@ pub(crate) fn dt_start_to_rrule_datetime(
                 .single()
                 .ok_or(RecurrenceError::AmbiguousDateTime)
         }
-        Some(DatePerhapsTime::DateTime(CalendarDateTime::Floating(naive))) => {
-            Ok(rrule::Tz::LOCAL.from_local_datetime(&naive).unwrap())
-        }
+        Some(DatePerhapsTime::DateTime(CalendarDateTime::Floating(naive))) => Ok(rrule::Tz::LOCAL
+            .from_local_datetime(&naive)
+            .single()
+            .ok_or(RecurrenceError::AmbiguousDateTime)?),
 
         Some(DatePerhapsTime::Date(naive_date)) => Ok(rrule::Tz::LOCAL
             .from_local_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
-            .unwrap()),
+            .single()
+            .ok_or(RecurrenceError::AmbiguousDateTime)?),
         None => Err(RecurrenceError::InvalidDtStart),
     }
 }
