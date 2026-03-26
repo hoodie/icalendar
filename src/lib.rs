@@ -44,6 +44,8 @@ mod components;
 #[cfg(feature = "parser")]
 pub mod parser;
 mod properties;
+#[cfg(feature = "recurrence")]
+mod recurrence;
 mod value_types;
 
 pub use crate::{
@@ -56,6 +58,24 @@ pub use crate::{
     properties::{Class, EventStatus, Parameter, Property, TodoStatus},
     value_types::ValueType,
 };
+
+#[cfg(feature = "recurrence")]
+pub use rrule::{Frequency, NWeekday, RRule, RRuleSet, Tz, Weekday};
+
+#[cfg(feature = "recurrence")]
+pub use crate::recurrence::RecurrenceError;
+
+#[cfg(feature = "recurrence")]
+use rrule::Unvalidated;
+
+/// A not-yet-validated recurrence rule. Alias for [`RRule<Unvalidated>`].
+///
+/// Use this type when storing or returning an [`RRule`] that has not yet been
+/// bound to a start date, for example in helper functions or struct fields.
+/// At the call site of [`EventLike::recurrence`] the type is always inferred,
+/// so you only need to name it explicitly when the compiler asks you to.
+#[cfg(feature = "recurrence")]
+pub type UnvalidatedRRule = RRule<Unvalidated>;
 
 #[cfg(feature = "chrono-tz")]
 pub use crate::components::date_time::ymd_hm_tzid;

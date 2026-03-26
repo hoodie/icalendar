@@ -20,6 +20,8 @@ exclude = ["fixtures", ".github", ".gitignore", "*.json"]
 default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
 strict-dates = []
+chrono-tz = ["dep:chrono-tz"]
+recurrence = ["dep:rrule", "chrono-tz", "dep:thiserror"]
 
 [dependencies]
 serde = { version = "1.0.228", optional = true, features = ["derive"] }
@@ -27,6 +29,7 @@ serde_json = { version = "1.0.149", optional = true }
 iso8601 = "0.6"
 chrono-tz = { version = "0.10", optional = true }
 time = { version = "0.3.46", optional = true }
+thiserror = { version = "2.0.18", optional = true }
 
 [dependencies.chrono]
 version = "0.4.43"
@@ -39,6 +42,10 @@ optional = true
 
 [dependencies.nom-language]
 version = "0.1"
+optional = true
+
+[dependencies.rrule]
+version = "0.14"
 optional = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.uuid]
@@ -63,7 +70,7 @@ required-features = ["parser"]
 [[example]]
 name = "readme_parse"
 path = "examples/readme-parse.rs"
-required-features = ["parser"]
+required-features = ["parser", "chrono-tz"]
 
 [[example]]
 name = "parse_advanced"
@@ -94,3 +101,13 @@ required-features = ["parser"]
 name = "timezone"
 path = "examples/timezone.rs"
 required-features = ["chrono-tz"]
+
+[[example]]
+name = "recurrence"
+path = "examples/recurrence.rs"
+required-features = ["recurrence"]
+
+[[example]]
+name = "recurrence_parse"
+path = "examples/recurrence_parse.rs"
+required-features = ["recurrence", "parser"]
