@@ -51,7 +51,8 @@ pub(crate) fn dt_start_to_rrule_datetime(
 #[cfg(all(test, feature = "parser"))]
 mod test_recurrence_tzid {
     use crate::{
-        Calendar, CalendarComponent, Event, EventLike, Frequency, NWeekday, RRule, Tz, UnvalidatedRRule, Weekday, components::date_time::CalendarDateTime
+        Calendar, CalendarComponent, Event, EventLike, Frequency, NWeekday, RRule, Tz,
+        UnvalidatedRRule, Weekday, components::date_time::CalendarDateTime,
     };
     use chrono::{NaiveDate, TimeZone, Utc};
 
