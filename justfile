@@ -36,27 +36,28 @@ check-minimal-versions:
 
 # Run all tests (default features)
 test:
-    cargo test
+    cargo nextest run
 
 # Run tests with all feature combinations from CI matrix
 test-all-features:
-    cargo test --no-default-features
-    cargo test --no-default-features --features parser
-    cargo test --no-default-features --features "parser,strict-dates"
-    cargo test --no-default-features --features "parser,serde_json"
-    cargo test --no-default-features --features "parser,chrono-tz"
-    cargo test --no-default-features --features "parser,time"
-    cargo test --no-default-features --features chrono-tz
-    cargo test --no-default-features --features time
-    cargo test --no-default-features --features "parser,serde_json,chrono-tz,time"
+    cargo nextest run --no-default-features
+    cargo nextest run --no-default-features --features parser
+    cargo nextest run --no-default-features --features "parser,strict-dates"
+    cargo nextest run --no-default-features --features "parser,serde_json"
+    cargo nextest run --no-default-features --features "parser,recurrence"
+    cargo nextest run --no-default-features --features "parser,chrono-tz"
+    cargo nextest run --no-default-features --features "parser,time"
+    cargo nextest run --no-default-features --features chrono-tz
+    cargo nextest run --no-default-features --features time
+    cargo nextest run --no-default-features --features "parser,serde_json,chrono-tz,time"
 
 # Run tests with parser feature
 test-parser:
-    cargo test --features parser
+    cargo nextest run --features parser
 
 # Run tests with chrono-tz feature
 test-tz:
-    cargo test --features chrono-tz
+    cargo nextest run --features chrono-tz
 
 # Run all test variants (includes feature matrix)
 test-all: test test-all-features test-parser test-tz
