@@ -18,6 +18,7 @@ A builder and parser for [`rfc5545`](http://tools.ietf.org/html/rfc5545) iCalend
 You want to help make this more mature? Please talk to me, Pull Requests and suggestions are very welcome.
 
 ## Examples
+
 Below are two examples of how to use this library. See the `examples` directory as well as the documentation for many more.
 
 ### Building a new Calendar
@@ -110,6 +111,7 @@ event.remove_property("LOCATION");
 ```
 
 ### Parsing a Calendar
+
 There is a feature called `"parser"` which allows you to read calendars again like this:
 
 ```rust
@@ -130,14 +132,20 @@ for component in &parsed_calendar.components {
 ```
 
 ## Structure
+
 A [`Calendar`] represents a full calendar, which contains multiple [`Component`]s. These may be either [`Event`]s, [`Todo`]s, or [`Venue`]s. Components in turn have [`Property`]s, which may have [`Parameter`]s.
+
+## `RRule` Support
+
+Thanks to the [`rrule`](https://crates.io/crates/rrule) crate and [friendly community contribution](https://github.com/hoodie/icalendar/pull/128), you can also add recurrence rules to your events and todos. See the documentation for `Event::recurrence` and `Todo::recurrence` for details.
+We currently reexport a select subset of `rrule` types. Should you experience compatibility issues because the maintainer (me) has not yet updated `icalendar` to reexport the latest `rrule` version, please feel free to open a PR.
 
 ## License
 
 Icalendar (this crate) is licensed under either of
 
-* Apache License, Version 2.0, (LICENSE-APACHE or <http://www.apache.org/licenses/LICENSE-2.0>)
-* MIT license (LICENSE-MIT or <http://opensource.org/licenses/MIT>)
+- Apache License, Version 2.0, (LICENSE-APACHE or <http://www.apache.org/licenses/LICENSE-2.0>)
+- MIT license (LICENSE-MIT or <http://opensource.org/licenses/MIT>)
 
 at your option.
 

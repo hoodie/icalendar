@@ -1,8 +1,21 @@
+#![allow(unused_qualifications)]
 use crate::{
     Property,
     components::date_time::{CalendarDateTime, DatePerhapsTime},
 };
 use chrono::{DateTime, TimeZone as _};
+
+pub use rrule::{self, Frequency, NWeekday, RRule, RRuleSet, Tz, Weekday};
+
+use rrule::Unvalidated;
+
+/// A not-yet-validated recurrence rule. Alias for [`RRule<Unvalidated>`].
+///
+/// Use this type when storing or returning an [`RRule`] that has not yet been
+/// bound to a start date, for example in helper functions or struct fields.
+/// At the call site of [`EventLike::recurrence`] the type is always inferred,
+/// so you only need to name it explicitly when the compiler asks you to.
+pub type UnvalidatedRRule = RRule<Unvalidated>;
 
 /// Converts a `DTSTART` [`Property`] into a [`chrono::DateTime<rrule::Tz>`] suitable
 /// for use with the `rrule` crate.
@@ -35,17 +48,16 @@ pub(crate) fn dt_start_to_rrule_datetime(
     }
 }
 
-#[cfg(all(test, feature = "recurrence", feature = "parser"))]
+#[cfg(all(test, feature = "parser"))]
 mod test_recurrence_tzid {
     use crate::{
-        Calendar, CalendarComponent, Event, EventLike, Frequency, NWeekday, RRule, Tz,
-        UnvalidatedRRule, Weekday, components::date_time::CalendarDateTime,
+        Calendar, CalendarComponent, Event, EventLike, Frequency, NWeekday, RRule, Tz, UnvalidatedRRule, Weekday, components::date_time::CalendarDateTime
     };
     use chrono::{NaiveDate, TimeZone, Utc};
 
     /// Builds an unbuilt weekly `RRule` for UTC tests.
     fn weekly_utc_rrule() -> UnvalidatedRRule {
-        RRule::default().count(4).freq(Frequency::Weekly)
+        rrule::RRule::default().count(4).freq(Frequency::Weekly)
     }
 
     /// A `DTSTART;TZID=...` event should produce occurrences in the named timezone,
@@ -265,7 +277,7 @@ mod test_recurrence_tzid {
     }
 }
 
-#[cfg(all(test, feature = "recurrence"))]
+#[cfg(test)]
 mod test_recurrence_errors {
     use crate::{
         Component, Event, EventLike as _, Frequency, RRule, RecurrenceError,
@@ -342,7 +354,7 @@ mod test_recurrence_errors {
     }
 }
 
-#[cfg(all(test, feature = "recurrence"))]
+#[cfg(test)]
 mod test_recurrence_properties {
     use crate::{
         Component, Event, EventLike as _, Frequency, RRule, Tz,
@@ -451,7 +463,6 @@ mod test_recurrence_properties {
 ///
 /// Returned by [`EventLike::recurrence`](crate::EventLike::recurrence) and
 /// [`EventLike::try_recurrence`](crate::EventLike::try_recurrence).
-#[cfg(feature = "recurrence")]
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum RecurrenceError {
     /// `DTSTART` was not set on the component before calling
