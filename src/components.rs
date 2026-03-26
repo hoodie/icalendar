@@ -522,29 +522,23 @@ pub trait EventLike: Component {
         };
         let rrule_str = self.property_value("RRULE")?;
 
-        let mut rdates_str = self
+        // Serialize each RDATE/EXDATE property as a full unfolded content line so that
+        // parameters like TZID and VALUE are preserved for the rrule parser.
+        let rdates_str: String = self
             .multi_properties()
             .get("RDATE")
             .unwrap_or(&vec![])
             .iter()
-            .map(Property::value)
-            .collect::<Vec<_>>()
-            .join(",");
-        if !rdates_str.is_empty() {
-            rdates_str = format!("\nRDATE:{rdates_str}");
-        }
+            .map(|p| format!("\n{}", p.to_line().unwrap_or_default()))
+            .collect();
 
-        let mut exdates_str = self
+        let exdates_str: String = self
             .multi_properties()
             .get("EXDATE")
             .unwrap_or(&vec![])
             .iter()
-            .map(Property::value)
-            .collect::<Vec<_>>()
-            .join(",");
-        if !exdates_str.is_empty() {
-            exdates_str = format!("\nEXDATE:{exdates_str}");
-        }
+            .map(|p| format!("\n{}", p.to_line().unwrap_or_default()))
+            .collect();
 
         let rrules = format!("{dt_start_str}\nRRULE:{rrule_str}{rdates_str}{exdates_str}");
         Some(
