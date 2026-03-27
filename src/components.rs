@@ -465,26 +465,12 @@ pub trait EventLike: Component {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let rdates = rruleset
-            .get_rdate()
-            .iter()
-            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let exdates = rruleset
-            .get_exdate()
-            .iter()
-            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-
         self.add_property("RRULE", rrule_str);
-        if !rdates.is_empty() {
-            self.add_multi_property("RDATE", &rdates);
+        for dt in rruleset.get_rdate() {
+            self.rdate(CalendarDateTime::from(dt));
         }
-        if !exdates.is_empty() {
-            self.add_multi_property("EXDATE", &exdates);
+        for dt in rruleset.get_exdate() {
+            self.rdate(CalendarDateTime::from(dt));
         }
 
         Ok(self)
@@ -548,7 +534,21 @@ pub trait EventLike: Component {
         )
     }
 
-    /// Set the ALARM for this event
+    /// Add an RDATE to this event
+    ///
+    /// [3.8.5.2.  Recurrence Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.2)
+    fn rdate<T: Into<DatePerhapsTime>>(&mut self, rdate: T) -> &mut Self {
+        self.append_multi_property(rdate.into().to_property("RDATE"))
+    }
+
+    /// Add an EXDATE
+    ///
+    /// [3.8.5.1.  Exception Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.1)
+    fn exdate<T: Into<DatePerhapsTime>>(&mut self, exdate: T) -> &mut Self {
+        self.append_multi_property(exdate.into().to_property("EXDATE"))
+    }
+
+    /// Set the ALARM
     /// [3.6.6.  Alarm Component](https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.6)
     fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
         let alarm: Alarm = alarm.into();
@@ -795,6 +795,38 @@ mod tests {
         let event = Event::new().starts(naive_date).ends(naive_date).done();
         assert_eq!(event.get_start(), Some(naive_date.into()));
         assert_eq!(event.get_end(), Some(naive_date.into()));
+    }
+
+    #[test]
+    fn exdate_accepts_naive_date() {
+        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let event = Event::new().exdate(naive_date).done();
+
+        let exdates = event.multi_properties().get("EXDATE").unwrap();
+        assert_eq!(exdates.len(), 1);
+        // Must serialise with VALUE=DATE parameter and a date-only value
+        let line = exdates.first().unwrap().to_line().unwrap();
+        assert!(
+            line.contains("VALUE=DATE"),
+            "EXDATE should carry VALUE=DATE parameter, got: {line}"
+        );
+        assert_eq!(exdates.first().unwrap().value(), "20010313");
+    }
+
+    #[test]
+    fn rdate_accepts_naive_date() {
+        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let event = Event::new().rdate(naive_date).done();
+
+        let rdates = event.multi_properties().get("RDATE").unwrap();
+        assert_eq!(rdates.len(), 1);
+        // Must serialise with VALUE=DATE parameter and a date-only value
+        let line = rdates.first().unwrap().to_line().unwrap();
+        assert!(
+            line.contains("VALUE=DATE"),
+            "RDATE should carry VALUE=DATE parameter, got: {line}"
+        );
+        assert_eq!(rdates.first().unwrap().value(), "20010313");
     }
 
     #[test]

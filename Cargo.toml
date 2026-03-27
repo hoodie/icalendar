@@ -113,6 +113,16 @@ path = "examples/recurrence_with_tz.rs"
 required-features = ["recurrence", "chrono-tz"]
 
 [[example]]
+name = "recurrence_id"
+path = "examples/recurrence_id.rs"
+required-features = ["recurrence", "chrono-tz"]
+
+[[example]]
+name = "rdate"
+path = "examples/rdate.rs"
+required-features = ["recurrence", "chrono-tz"]
+
+[[example]]
 name = "recurrence_parse"
 path = "examples/recurrence_parse.rs"
 required-features = ["recurrence", "parser"]
