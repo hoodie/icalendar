@@ -20,11 +20,6 @@ fn main() {
     let december_instance = CalendarDateTime::from_ymd_hm_tzid(2026, 12, 7, 9, 0, Berlin).unwrap();
     all_hands.exdate(december_instance);
 
-    // add an emergency session on a Wednesday
-    // 2026-06-17 is a Wednesday, outside the first-Monday RRULE pattern.
-    let emergency_session = CalendarDateTime::from_ymd_hm_tzid(2026, 6, 17, 9, 0, Berlin).unwrap();
-    all_hands.rdate(emergency_session);
-
     let mut calendar = Calendar::new();
     calendar.push(all_hands);
 

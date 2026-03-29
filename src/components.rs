@@ -510,6 +510,18 @@ pub trait EventLike: Component {
             } else {
                 writeln!(b, "DTSTART:{}", dt_start_prop.value()).unwrap();
             }
+
+            // When there is no RRULE the rrule crate's iterator only yields explicit RDATEs and
+            // never the DTSTART itself.  RFC 5545 §3.6.1 says DTSTART is the first instance, so
+            // we add it as an explicit RDATE so callers always see it in the occurrence list.
+            let has_rrule = self.property_value("RRULE").is_some();
+            if !has_rrule {
+                if let Some(tzid) = dt_start_prop.params().get("TZID") {
+                    writeln!(b, "RDATE;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
+                } else {
+                    writeln!(b, "RDATE:{}", dt_start_prop.value()).unwrap();
+                }
+            }
         };
 
         if let Some(rrule_str) = self.property_value("RRULE") {

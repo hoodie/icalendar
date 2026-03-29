@@ -166,6 +166,20 @@ impl CalendarDateTime {
             tzid: dt.offset().tz_id().to_owned(),
         }
     }
+
+    /// Create a new instance with the given timezone
+    #[cfg(feature = "chrono-tz")]
+    pub fn as_dt_with_tz(self) -> Option<DateTime<chrono_tz::Tz>> {
+        if let Self::WithTimezone { date_time, tzid } = self {
+            let date = date_time
+                .and_local_timezone(tzid.parse::<chrono_tz::Tz>().ok().unwrap())
+                .single()
+                .unwrap();
+            Some(date)
+        } else {
+            None
+        }
+    }
 }
 
 /// will return [`None`] if date is not valid

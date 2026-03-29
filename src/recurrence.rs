@@ -50,6 +50,37 @@ pub(crate) fn dt_start_to_rrule_datetime(
     }
 }
 
+/// Errors that can occur when setting or parsing recurrence rules.
+///
+/// Returned by [`EventLike::recurrence`](crate::EventLike::recurrence) and
+/// [`EventLike::try_recurrence`](crate::EventLike::try_recurrence).
+#[derive(Debug, PartialEq, thiserror::Error)]
+pub enum RecurrenceError {
+    /// `DTSTART` was not set on the component before calling
+    /// [`recurrence()`](crate::EventLike::recurrence). Call `.starts()` or
+    /// `.all_day()` first.
+    #[error("DTSTART must be set before calling recurrence()")]
+    MissingDtStart,
+
+    /// The `TZID` parameter on `DTSTART` could not be resolved to a known
+    /// timezone.
+    #[error("unrecognised timezone in DTSTART: {0}")]
+    InvalidTimezone(String),
+
+    /// The local datetime in `DTSTART` is ambiguous or invalid for the given
+    /// timezone (e.g. a time that falls in a DST gap).
+    #[error("the local datetime in DTSTART is ambiguous or invalid for its timezone")]
+    AmbiguousDateTime,
+
+    /// The `DTSTART` property value could not be parsed.
+    #[error("could not parse DTSTART property value")]
+    InvalidDtStart,
+
+    /// The recurrence rule itself failed rrule's own validation or parsing.
+    #[error("recurrence rule error: {0}")]
+    Rule(#[from] rrule::RRuleError),
+}
+
 #[cfg(all(test, feature = "parser"))]
 mod test_recurrence_tzid {
     use crate::{
@@ -287,14 +318,19 @@ mod test_recurrence_errors {
     };
     use chrono::{NaiveDate, TimeZone, Utc};
 
-    /// An event with no RRULE property should return None.
+    /// An event with only DTSTART (no RRULE, no RDATE) should still return Ok,
+    /// yielding the start date itself as the sole occurrence.
     #[test]
-    fn no_rrule_returns_none() {
-        let event = Event::new()
-            .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
-            .done();
+    fn no_rrule_returns_single_occurrence() {
+        let dt = Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap();
+        let event = Event::new().starts(dt).done();
 
-        assert!(event.get_recurrence().is_err());
+        let rruleset = event
+            .get_recurrence()
+            .expect("expected Ok even without RRULE");
+        let dates = rruleset.all(10).dates;
+        assert_eq!(dates.len(), 1);
+        assert_eq!(dates.first().unwrap().timestamp(), dt.timestamp());
     }
 
     /// An event with a valid RRULE should return Some(_) / Some(Ok(_)).
@@ -351,6 +387,72 @@ mod test_recurrence_errors {
             result,
             Err(RecurrenceError::InvalidTimezone(tz)) if tz == "Not/ATimezone"
         ));
+    }
+}
+
+#[cfg(test)]
+mod test_rdates {
+
+    use std::vec;
+
+    use chrono::TimeZone as _;
+    use chrono_tz::Europe::Berlin;
+
+    use crate::{
+        Calendar, Component, Event, EventLike as _, components::date_time::CalendarDateTime,
+    };
+
+    #[test]
+    fn use_rdates_for_recurrence() {
+        let mut all_hands = Event::new()
+            .uid("all_hands_2026@example.com")
+            .summary("All-Hands Meeting")
+            .description("Monthly all-hands. First Monday of each month, 09:00–10:00 Berlin time.")
+            .starts(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 5, 9, 0, Berlin).unwrap())
+            .ends(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 5, 10, 0, Berlin).unwrap())
+            .rdate(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 6, 9, 0, Berlin).unwrap())
+            .rdate(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 7, 9, 0, Berlin).unwrap())
+            .rdate(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 8, 9, 0, Berlin).unwrap())
+            // .recurrence(RRule::new(Frequency::Monthly).by_weekday(vec![NWeekday::Nth(1, Weekday::Mon)])).unwrap()
+            .done();
+
+        // cancel the December instance
+        let december_instance =
+            CalendarDateTime::from_ymd_hm_tzid(2026, 12, 7, 9, 0, Berlin).unwrap();
+        all_hands.exdate(december_instance);
+
+        let mut calendar = Calendar::new();
+        calendar.push(all_hands);
+
+        let recurrences = calendar
+            .events()
+            .next()
+            .unwrap()
+            .to_owned()
+            .get_recurrence()
+            .unwrap()
+            .all(100)
+            .dates;
+
+        let expected = vec![
+            Berlin.ymd(2026, 1, 5).and_hms(9, 0, 0),
+            Berlin.ymd(2026, 1, 6).and_hms(9, 0, 0),
+            Berlin.ymd(2026, 1, 7).and_hms(9, 0, 0),
+            Berlin.ymd(2026, 1, 8).and_hms(9, 0, 0),
+            // December instance should be excluded by EXDATE
+            // Berlin.ymd(2026, 12, 7).and_hms(9, 0, 0)
+            // Emergency session should be included by RDATE
+        ]
+        .into_iter()
+        .collect::<Vec<_>>();
+
+        assert_eq!(
+            recurrences
+                .into_iter()
+                .map(|dt| dt.with_timezone(&chrono_tz::Europe::Berlin))
+                .collect::<Vec<_>>(),
+            expected
+        );
     }
 }
 
@@ -457,35 +559,4 @@ mod test_recurrence_properties {
             chrono::NaiveTime::from_hms_opt(0, 0, 0).unwrap()
         );
     }
-}
-
-/// Errors that can occur when setting or parsing recurrence rules.
-///
-/// Returned by [`EventLike::recurrence`](crate::EventLike::recurrence) and
-/// [`EventLike::try_recurrence`](crate::EventLike::try_recurrence).
-#[derive(Debug, PartialEq, thiserror::Error)]
-pub enum RecurrenceError {
-    /// `DTSTART` was not set on the component before calling
-    /// [`recurrence()`](crate::EventLike::recurrence). Call `.starts()` or
-    /// `.all_day()` first.
-    #[error("DTSTART must be set before calling recurrence()")]
-    MissingDtStart,
-
-    /// The `TZID` parameter on `DTSTART` could not be resolved to a known
-    /// timezone.
-    #[error("unrecognised timezone in DTSTART: {0}")]
-    InvalidTimezone(String),
-
-    /// The local datetime in `DTSTART` is ambiguous or invalid for the given
-    /// timezone (e.g. a time that falls in a DST gap).
-    #[error("the local datetime in DTSTART is ambiguous or invalid for its timezone")]
-    AmbiguousDateTime,
-
-    /// The `DTSTART` property value could not be parsed.
-    #[error("could not parse DTSTART property value")]
-    InvalidDtStart,
-
-    /// The recurrence rule itself failed rrule's own validation or parsing.
-    #[error("recurrence rule error: {0}")]
-    Rule(#[from] rrule::RRuleError),
 }
