@@ -194,8 +194,8 @@ mod test_recurrence_tzid {
             .done();
 
         let original_rrule_set = event
-            .try_recurrence()
-            .expect("event should have a recurrence rule")
+            .get_recurrence()
+            // .expect("event should have a recurrence rule")
             .expect("recurrence rule should be valid");
 
         assert_eq!(original_rrule_set.get_dt_start().timezone(), Tz::LOCAL);
@@ -217,8 +217,7 @@ mod test_recurrence_tzid {
             .unwrap();
 
         let reparsed_rrule_set = reparsed_event
-            .try_recurrence()
-            .expect("reparsed event should have a recurrence rule")
+            .get_recurrence()
             .expect("reparsed recurrence rule should be valid");
 
         assert_eq!(reparsed_rrule_set.get_dt_start().timezone(), Tz::LOCAL);
@@ -243,8 +242,8 @@ mod test_recurrence_tzid {
             .done();
 
         let original_rrule_set = event
-            .try_recurrence()
-            .expect("event should have a recurrence rule")
+            .get_recurrence()
+            // .expect("event should have a recurrence rule")
             .expect("recurrence rule should be valid");
 
         assert_eq!(original_rrule_set.get_dt_start().timezone(), Tz::LOCAL);
@@ -266,8 +265,8 @@ mod test_recurrence_tzid {
             .unwrap();
 
         let reparsed_rrule_set = reparsed_event
-            .try_recurrence()
-            .expect("reparsed event should have a recurrence rule")
+            .get_recurrence()
+            // .expect("reparsed event should have a recurrence rule")
             .expect("reparsed recurrence rule should be valid");
 
         assert_eq!(reparsed_rrule_set.get_dt_start().timezone(), Tz::LOCAL);
@@ -295,8 +294,7 @@ mod test_recurrence_errors {
             .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
             .done();
 
-        assert!(event.get_recurrence().is_none());
-        assert!(event.try_recurrence().is_none());
+        assert!(event.get_recurrence().is_err());
     }
 
     /// An event with a valid RRULE should return Some(_) / Some(Ok(_)).
@@ -308,8 +306,7 @@ mod test_recurrence_errors {
             .unwrap()
             .done();
 
-        assert!(event.get_recurrence().is_some());
-        assert!(matches!(event.try_recurrence(), Some(Ok(_))));
+        assert!(event.get_recurrence().is_ok());
     }
 
     /// An event with a syntactically invalid RRULE value should return None / Some(Err(_)).
@@ -320,10 +317,10 @@ mod test_recurrence_errors {
             .add_property("RRULE", "THIS IS NOT VALID")
             .done();
 
-        assert!(event.get_recurrence().is_none());
+        assert!(event.get_recurrence().is_err());
         assert!(matches!(
-            event.try_recurrence(),
-            Some(Err(RecurrenceError::Rule(_)))
+            event.get_recurrence(),
+            Err(RecurrenceError::Rule(_))
         ));
     }
 

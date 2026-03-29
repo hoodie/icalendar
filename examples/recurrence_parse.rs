@@ -13,7 +13,7 @@ fn main() {
 
     for event in parsed_calendar.events() {
         println!("Event: {}", event.get_summary().unwrap());
-        if let Some(rrules) = event.get_recurrence() {
+        if let Ok(rrules) = event.get_recurrence() {
             let datetimes: Vec<DateTime<Tz>> = rrules.all(RECURRENCE_LIMIT).dates;
 
             println!("Repeating on the following dates (showing first 10): ");

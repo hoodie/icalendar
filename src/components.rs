@@ -476,15 +476,15 @@ pub trait EventLike: Component {
         Ok(self)
     }
 
-    /// Get recurrence rules.
-    ///
-    /// Returns `None` if no `RRULE` property is present on this component, or if the
-    /// rule could not be parsed. Use [`try_recurrence`](EventLike::try_recurrence) if
-    /// you need to distinguish between the two cases or want to inspect the parse error.
-    #[cfg(feature = "recurrence")]
-    fn get_recurrence(&self) -> Option<rrule::RRuleSet> {
-        self.try_recurrence()?.ok()
-    }
+    // /// Get recurrence rules.
+    // ///
+    // /// Returns `None` if no `RRULE` property is present on this component, or if the
+    // /// rule could not be parsed. Use [`try_recurrence`](EventLike::try_recurrence) if
+    // /// you need to distinguish between the two cases or want to inspect the parse error.
+    // #[cfg(feature = "recurrence")]
+    // fn get_recurrence(&self) -> Option<rrule::RRuleSet> {
+    //     self.try_recurrence()?.ok()
+    // }
 
     /// Get recurrence rules, returning a parse error if the `RRULE` property is present
     /// but invalid.
@@ -497,41 +497,38 @@ pub trait EventLike: Component {
     /// trust the data source. Use this variant when working with parsed `.ics` input that
     /// you did not produce yourself and want to surface errors to the caller.
     #[cfg(feature = "recurrence")]
-    fn try_recurrence(&self) -> Option<Result<rrule::RRuleSet, RecurrenceError>> {
-        let dt_start_prop = self.properties().get("DTSTART")?;
-        // rrule's parser only understands DTSTART with an optional TZID parameter.
-        // Other parameters like VALUE=DATE must be omitted, otherwise rrule misinterprets them.
-        let dt_start_str = if let Some(tzid) = dt_start_prop.params().get("TZID") {
-            format!("DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value())
-        } else {
-            format!("DTSTART:{}", dt_start_prop.value())
+    fn get_recurrence(&self) -> Result<rrule::RRuleSet, RecurrenceError> {
+        use std::fmt::Write;
+
+        let mut b = String::new();
+
+        if let Some(dt_start_prop) = self.properties().get("DTSTART") {
+            // rrule's parser only understands DTSTART with an optional TZID parameter.
+            // Other parameters like VALUE=DATE must be omitted, otherwise rrule misinterprets them.
+            if let Some(tzid) = dt_start_prop.params().get("TZID") {
+                writeln!(b, "DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
+            } else {
+                writeln!(b, "DTSTART:{}", dt_start_prop.value()).unwrap();
+            }
         };
-        let rrule_str = self.property_value("RRULE")?;
 
-        // Serialize each RDATE/EXDATE property as a full unfolded content line so that
-        // parameters like TZID and VALUE are preserved for the rrule parser.
-        let rdates_str: String = self
-            .multi_properties()
-            .get("RDATE")
-            .unwrap_or(&vec![])
-            .iter()
-            .map(|p| format!("\n{}", p.to_line().unwrap_or_default()))
-            .collect();
+        if let Some(rrule_str) = self.property_value("RRULE") {
+            writeln!(b, "RRULE:{rrule_str}").unwrap();
+        }
 
-        let exdates_str: String = self
-            .multi_properties()
-            .get("EXDATE")
-            .unwrap_or(&vec![])
-            .iter()
-            .map(|p| format!("\n{}", p.to_line().unwrap_or_default()))
-            .collect();
+        if let Some(rdates) = self.multi_properties().get("RDATE") {
+            for rdate in rdates.iter().filter_map(|p| p.to_line().ok()) {
+                writeln!(b, "{rdate}").unwrap();
+            }
+        }
 
-        let rrules = format!("{dt_start_str}\nRRULE:{rrule_str}{rdates_str}{exdates_str}");
-        Some(
-            rrules
-                .parse::<rrule::RRuleSet>()
-                .map_err(RecurrenceError::Rule),
-        )
+        if let Some(exdates) = self.multi_properties().get("EXDATE") {
+            for exdate in exdates.iter().filter_map(|p| p.to_line().ok()) {
+                writeln!(b, "{exdate}").unwrap();
+            }
+        }
+
+        b.parse::<rrule::RRuleSet>().map_err(RecurrenceError::Rule)
     }
 
     /// Add an RDATE to this event
