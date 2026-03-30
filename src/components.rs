@@ -874,4 +874,24 @@ mod tests {
             [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
         );
     }
+
+    #[test]
+    #[cfg(feature = "recurrence")]
+    fn no_empty_rdate_or_exdate_added() {
+        use crate::{Frequency, RRule};
+
+        // Create an event with an RRULE, but no RDATE or EXDATE
+        let naive_date = NaiveDate::from_ymd_opt(2026, 3, 30).unwrap();
+        let event = Event::new()
+            .starts(naive_date)
+            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
+            .unwrap()
+            .done();
+
+        let serialized = event.to_string();
+
+        // Ensure no empty RDATE or EXDATE lines are present
+        assert!(!serialized.contains("RDATE:"));
+        assert!(!serialized.contains("EXDATE:"));
+    }
 }
