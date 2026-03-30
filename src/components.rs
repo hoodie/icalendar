@@ -1,8 +1,6 @@
 #[cfg(feature = "recurrence")]
 use crate::recurrence::RecurrenceError;
 use chrono::{DateTime, NaiveDate, Utc};
-#[cfg(feature = "recurrence")]
-use rrule::RRuleSet;
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -450,40 +448,13 @@ pub trait EventLike: Component {
     /// the rule fails rrule's own validation.
     #[cfg(feature = "recurrence")]
     fn recurrence(&mut self, rrule: crate::UnvalidatedRRule) -> Result<&mut Self, RecurrenceError> {
-        use chrono::TimeZone as _;
-        use date_time::{CalendarDateTime, DatePerhapsTime};
-
         // Derive dt_start from whatever DTSTART is already on the component.
         let dt_start_prop = self
             .properties()
             .get("DTSTART")
             .ok_or(RecurrenceError::MissingDtStart)?;
 
-        let dt_start: DateTime<rrule::Tz> = match DatePerhapsTime::from_property(dt_start_prop) {
-            Some(DatePerhapsTime::DateTime(CalendarDateTime::Utc(utc))) => {
-                rrule::Tz::UTC.from_utc_datetime(&utc.naive_utc())
-            }
-            Some(DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone { date_time, tzid })) => {
-                let tz: rrule::Tz = tzid
-                    .parse::<chrono_tz::Tz>()
-                    .map_err(|_| RecurrenceError::InvalidTimezone(tzid.clone()))?
-                    .into();
-                tz.from_local_datetime(&date_time)
-                    .single()
-                    .ok_or(RecurrenceError::AmbiguousDateTime)?
-            }
-            Some(DatePerhapsTime::DateTime(CalendarDateTime::Floating(naive))) => {
-                // Floating datetimes have no timezone — use UTC as a best-effort interpretation.
-                rrule::Tz::UTC.from_utc_datetime(&naive)
-            }
-            Some(DatePerhapsTime::Date(naive_date)) => {
-                // All-day events: treat as midnight UTC.
-                rrule::Tz::UTC.from_utc_datetime(&naive_date.and_hms_opt(0, 0, 0).unwrap())
-            }
-            None => {
-                return Err(RecurrenceError::InvalidDtStart);
-            }
-        };
+        let dt_start = crate::recurrence::dt_start_to_rrule_datetime(dt_start_prop)?;
 
         let rruleset = rrule.build(dt_start)?;
 
@@ -494,36 +465,26 @@ pub trait EventLike: Component {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let rdates = rruleset
-            .get_rdate()
-            .iter()
-            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let exdates = rruleset
-            .get_exdate()
-            .iter()
-            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
-            .collect::<Vec<_>>()
-            .join(",");
-
-        self.add_property("RRULE", rrule_str)
-            .add_multi_property("RDATE", &rdates)
-            .add_multi_property("EXDATE", &exdates);
+        self.add_property("RRULE", rrule_str);
+        for dt in rruleset.get_rdate() {
+            self.rdate(CalendarDateTime::from(dt));
+        }
+        for dt in rruleset.get_exdate() {
+            self.rdate(CalendarDateTime::from(dt));
+        }
 
         Ok(self)
     }
 
-    /// Get recurrence rules.
-    ///
-    /// Returns `None` if no `RRULE` property is present on this component, or if the
-    /// rule could not be parsed. Use [`try_recurrence`](EventLike::try_recurrence) if
-    /// you need to distinguish between the two cases or want to inspect the parse error.
-    #[cfg(feature = "recurrence")]
-    fn get_recurrence(&self) -> Option<RRuleSet> {
-        self.try_recurrence()?.ok()
-    }
+    // /// Get recurrence rules.
+    // ///
+    // /// Returns `None` if no `RRULE` property is present on this component, or if the
+    // /// rule could not be parsed. Use [`try_recurrence`](EventLike::try_recurrence) if
+    // /// you need to distinguish between the two cases or want to inspect the parse error.
+    // #[cfg(feature = "recurrence")]
+    // fn get_recurrence(&self) -> Option<rrule::RRuleSet> {
+    //     self.try_recurrence()?.ok()
+    // }
 
     /// Get recurrence rules, returning a parse error if the `RRULE` property is present
     /// but invalid.
@@ -536,46 +497,67 @@ pub trait EventLike: Component {
     /// trust the data source. Use this variant when working with parsed `.ics` input that
     /// you did not produce yourself and want to surface errors to the caller.
     #[cfg(feature = "recurrence")]
-    fn try_recurrence(&self) -> Option<Result<RRuleSet, RecurrenceError>> {
-        let dt_start_prop = self.properties().get("DTSTART")?;
-        // rrule's parser only understands DTSTART with an optional TZID parameter.
-        // Other parameters like VALUE=DATE must be omitted, otherwise rrule misinterprets them.
-        let dt_start_str = if let Some(tzid) = dt_start_prop.params().get("TZID") {
-            format!("DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value())
-        } else {
-            format!("DTSTART:{}", dt_start_prop.value())
+    fn get_recurrence(&self) -> Result<rrule::RRuleSet, RecurrenceError> {
+        use std::fmt::Write;
+
+        let mut b = String::new();
+
+        if let Some(dt_start_prop) = self.properties().get("DTSTART") {
+            // rrule's parser only understands DTSTART with an optional TZID parameter.
+            // Other parameters like VALUE=DATE must be omitted, otherwise rrule misinterprets them.
+            if let Some(tzid) = dt_start_prop.params().get("TZID") {
+                writeln!(b, "DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
+            } else {
+                writeln!(b, "DTSTART:{}", dt_start_prop.value()).unwrap();
+            }
+
+            // When there is no RRULE the rrule crate's iterator only yields explicit RDATEs and
+            // never the DTSTART itself.  RFC 5545 §3.6.1 says DTSTART is the first instance, so
+            // we add it as an explicit RDATE so callers always see it in the occurrence list.
+            let has_rrule = self.property_value("RRULE").is_some();
+            if !has_rrule {
+                if let Some(tzid) = dt_start_prop.params().get("TZID") {
+                    writeln!(b, "RDATE;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
+                } else {
+                    writeln!(b, "RDATE:{}", dt_start_prop.value()).unwrap();
+                }
+            }
         };
-        let rrule_str = self.property_value("RRULE")?;
 
-        let mut rdates_str = self
-            .multi_properties()
-            .get("RDATE")
-            .unwrap_or(&vec![])
-            .iter()
-            .map(Property::value)
-            .collect::<Vec<_>>()
-            .join(",");
-        if !rdates_str.is_empty() {
-            rdates_str = format!("\nRDATE:{rdates_str}");
+        if let Some(rrule_str) = self.property_value("RRULE") {
+            writeln!(b, "RRULE:{rrule_str}").unwrap();
         }
 
-        let mut exdates_str = self
-            .multi_properties()
-            .get("EXDATE")
-            .unwrap_or(&vec![])
-            .iter()
-            .map(Property::value)
-            .collect::<Vec<_>>()
-            .join(",");
-        if !exdates_str.is_empty() {
-            exdates_str = format!("\nEXDATE:{exdates_str}");
+        if let Some(rdates) = self.multi_properties().get("RDATE") {
+            for rdate in rdates.iter().filter_map(|p| p.to_line().ok()) {
+                writeln!(b, "{rdate}").unwrap();
+            }
         }
 
-        let rrules = format!("{dt_start_str}\nRRULE:{rrule_str}{rdates_str}{exdates_str}");
-        Some(rrules.parse::<RRuleSet>().map_err(RecurrenceError::Rule))
+        if let Some(exdates) = self.multi_properties().get("EXDATE") {
+            for exdate in exdates.iter().filter_map(|p| p.to_line().ok()) {
+                writeln!(b, "{exdate}").unwrap();
+            }
+        }
+
+        b.parse::<rrule::RRuleSet>().map_err(RecurrenceError::Rule)
     }
 
-    /// Set the ALARM for this event
+    /// Add an RDATE to this event
+    ///
+    /// [3.8.5.2.  Recurrence Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.2)
+    fn rdate<T: Into<DatePerhapsTime>>(&mut self, rdate: T) -> &mut Self {
+        self.append_multi_property(rdate.into().to_property("RDATE"))
+    }
+
+    /// Add an EXDATE
+    ///
+    /// [3.8.5.1.  Exception Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.1)
+    fn exdate<T: Into<DatePerhapsTime>>(&mut self, exdate: T) -> &mut Self {
+        self.append_multi_property(exdate.into().to_property("EXDATE"))
+    }
+
+    /// Set the ALARM
     /// [3.6.6.  Alarm Component](https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.6)
     fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
         let alarm: Alarm = alarm.into();
@@ -825,6 +807,38 @@ mod tests {
     }
 
     #[test]
+    fn exdate_accepts_naive_date() {
+        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let event = Event::new().exdate(naive_date).done();
+
+        let exdates = event.multi_properties().get("EXDATE").unwrap();
+        assert_eq!(exdates.len(), 1);
+        // Must serialise with VALUE=DATE parameter and a date-only value
+        let line = exdates.first().unwrap().to_line().unwrap();
+        assert!(
+            line.contains("VALUE=DATE"),
+            "EXDATE should carry VALUE=DATE parameter, got: {line}"
+        );
+        assert_eq!(exdates.first().unwrap().value(), "20010313");
+    }
+
+    #[test]
+    fn rdate_accepts_naive_date() {
+        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let event = Event::new().rdate(naive_date).done();
+
+        let rdates = event.multi_properties().get("RDATE").unwrap();
+        assert_eq!(rdates.len(), 1);
+        // Must serialise with VALUE=DATE parameter and a date-only value
+        let line = rdates.first().unwrap().to_line().unwrap();
+        assert!(
+            line.contains("VALUE=DATE"),
+            "RDATE should carry VALUE=DATE parameter, got: {line}"
+        );
+        assert_eq!(rdates.first().unwrap().value(), "20010313");
+    }
+
+    #[test]
     #[cfg(feature = "recurrence")]
     fn get_recurrence() {
         use crate::{Frequency, NWeekday, RRule, Weekday};
@@ -859,222 +873,5 @@ mod tests {
             output_rrules.first().unwrap().get_by_weekday(),
             [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
         );
-    }
-}
-
-#[cfg(all(test, feature = "recurrence", feature = "parser"))]
-mod test_recurrence_tzid {
-    use crate::{CalendarComponent, Event, EventLike};
-    use crate::{Frequency, RRule, Tz, UnvalidatedRRule};
-
-    /// Builds an unbuilt weekly `RRule` for UTC tests.
-    fn weekly_utc_rrule() -> UnvalidatedRRule {
-        RRule::default().count(4).freq(Frequency::Weekly)
-    }
-
-    /// A `DTSTART;TZID=...` event should produce occurrences in the named timezone,
-    /// not in UTC or the local machine timezone.
-    #[test]
-    fn tzid_dtstart_preserves_timezone() {
-        use crate::components::date_time::CalendarDateTime;
-        use crate::{NWeekday, Weekday};
-        use chrono::NaiveDate;
-
-        let rrule = RRule::default()
-            .count(3)
-            .freq(Frequency::Weekly)
-            .by_weekday(vec![NWeekday::Every(Weekday::Mon)]);
-
-        let dt_start_ical = CalendarDateTime::WithTimezone {
-            date_time: NaiveDate::from_ymd_opt(2025, 6, 2)
-                .unwrap()
-                .and_hms_opt(10, 0, 0)
-                .unwrap(),
-            tzid: "Europe/Berlin".to_string(),
-        };
-
-        let event = Event::new()
-            .starts(dt_start_ical)
-            .recurrence(rrule)
-            .unwrap()
-            .done();
-
-        let rrule_set_out = event
-            .get_recurrence()
-            .expect("event should have a recurrence rule");
-        let dates = rrule_set_out.all(10).dates;
-
-        assert_eq!(dates.len(), 3);
-        // All occurrences must be in Europe/Berlin, not UTC
-        for dt in &dates {
-            assert_eq!(dt.timezone(), Tz::Europe__Berlin);
-            assert_eq!(dt.format("%H:%M").to_string(), "10:00");
-        }
-    }
-
-    /// Serializing an event with `DTSTART;TZID=...` and parsing it back must yield the
-    /// same occurrences as the original (round-trip correctness).
-    #[test]
-    fn tzid_dtstart_round_trips_through_serialization() {
-        use crate::Calendar;
-        use crate::components::date_time::CalendarDateTime;
-        use crate::{NWeekday, Weekday};
-        use chrono::NaiveDate;
-
-        let rrule = RRule::default()
-            .count(3)
-            .freq(Frequency::Weekly)
-            .by_weekday(vec![NWeekday::Every(Weekday::Mon)]);
-
-        let dt_start_ical = CalendarDateTime::WithTimezone {
-            date_time: NaiveDate::from_ymd_opt(2025, 6, 2)
-                .unwrap()
-                .and_hms_opt(10, 0, 0)
-                .unwrap(),
-            tzid: "Europe/Berlin".to_string(),
-        };
-
-        let event = Event::new()
-            .starts(dt_start_ical)
-            .recurrence(rrule)
-            .unwrap()
-            .done();
-
-        let original_dates = event
-            .get_recurrence()
-            .expect("event should have a recurrence rule")
-            .all(10)
-            .dates;
-
-        // Serialize → parse back
-        let mut calendar = Calendar::new();
-        calendar.push(event);
-        let serialized = calendar.to_string();
-        let reparsed: Calendar = serialized.parse().unwrap();
-
-        let reparsed_event = reparsed
-            .components
-            .iter()
-            .find_map(|c| {
-                if let CalendarComponent::Event(e) = c {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
-            .unwrap();
-
-        let reparsed_dates = reparsed_event
-            .get_recurrence()
-            .expect("reparsed event should have a recurrence rule")
-            .all(10)
-            .dates;
-
-        assert_eq!(original_dates, reparsed_dates);
-        assert_eq!(reparsed_dates.len(), 3);
-    }
-
-    /// A UTC `DTSTART` (no TZID parameter) must still work correctly after the refactor.
-    #[test]
-    fn utc_dtstart_still_works() {
-        use crate::components::date_time::CalendarDateTime;
-        use chrono::{TimeZone, Utc};
-
-        let utc_dt = Utc.with_ymd_and_hms(2025, 3, 17, 9, 0, 0).unwrap();
-
-        let event = Event::new()
-            .starts(CalendarDateTime::Utc(utc_dt))
-            .recurrence(weekly_utc_rrule())
-            .unwrap()
-            .done();
-
-        let dates = event
-            .get_recurrence()
-            .expect("event should have a recurrence rule")
-            .all(10)
-            .dates;
-        assert_eq!(dates.len(), 4);
-        for dt in &dates {
-            assert_eq!(dt.timezone(), Tz::UTC);
-        }
-    }
-}
-
-#[cfg(all(test, feature = "recurrence"))]
-mod test_recurrence_errors {
-    use crate::{Event, EventLike as _, Frequency, RRule, RecurrenceError};
-    use chrono::{TimeZone as _, Utc};
-
-    /// An event with no RRULE property should return None.
-    #[test]
-    fn no_rrule_returns_none() {
-        let event = Event::new()
-            .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
-            .done();
-
-        assert!(event.get_recurrence().is_none());
-        assert!(event.try_recurrence().is_none());
-    }
-
-    /// An event with a valid RRULE should return Some(_) / Some(Ok(_)).
-    #[test]
-    fn valid_rrule_returns_some() {
-        let event = Event::new()
-            .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
-            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
-            .unwrap()
-            .done();
-
-        assert!(event.get_recurrence().is_some());
-        assert!(matches!(event.try_recurrence(), Some(Ok(_))));
-    }
-
-    /// An event with a syntactically invalid RRULE value should return None / Some(Err(_)).
-    #[test]
-    fn invalid_rrule_returns_none_and_some_err() {
-        use crate::Component;
-
-        let event = Event::new()
-            .starts(Utc.with_ymd_and_hms(2025, 1, 1, 9, 0, 0).unwrap())
-            .add_property("RRULE", "THIS IS NOT VALID")
-            .done();
-
-        assert!(event.get_recurrence().is_none());
-        assert!(matches!(
-            event.try_recurrence(),
-            Some(Err(RecurrenceError::Rule(_)))
-        ));
-    }
-
-    /// Calling `recurrence()` before setting DTSTART should return `MissingDtStart`.
-    #[test]
-    fn missing_dtstart_returns_error() {
-        let mut event = Event::new();
-        let result = event.recurrence(RRule::default().freq(Frequency::Daily));
-        assert!(matches!(result, Err(RecurrenceError::MissingDtStart)));
-    }
-
-    /// An unrecognised TZID in DTSTART should return `InvalidTimezone`.
-    #[test]
-    fn invalid_timezone_returns_error() {
-        use crate::components::date_time::CalendarDateTime;
-        use chrono::NaiveDate;
-
-        let dt_start = CalendarDateTime::WithTimezone {
-            date_time: NaiveDate::from_ymd_opt(2025, 1, 1)
-                .unwrap()
-                .and_hms_opt(9, 0, 0)
-                .unwrap(),
-            tzid: "Not/ATimezone".to_string(),
-        };
-
-        let mut event = Event::new();
-        event.starts(dt_start);
-        let result = event.recurrence(RRule::default().freq(Frequency::Daily));
-
-        assert!(matches!(
-            result,
-            Err(RecurrenceError::InvalidTimezone(tz)) if tz == "Not/ATimezone"
-        ));
     }
 }

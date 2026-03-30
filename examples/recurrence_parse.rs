@@ -11,15 +11,13 @@ fn main() {
 
     let parsed_calendar: Calendar = contents.parse().unwrap();
 
-    for component in &parsed_calendar.components {
-        if let CalendarComponent::Event(event) = component {
-            println!("Event: {}", event.get_summary().unwrap());
-            if let Some(rrules) = event.get_recurrence() {
-                let datetimes: Vec<DateTime<Tz>> = rrules.all(RECURRENCE_LIMIT).dates;
+    for event in parsed_calendar.events() {
+        println!("Event: {}", event.get_summary().unwrap());
+        if let Ok(rrules) = event.get_recurrence() {
+            let datetimes: Vec<DateTime<Tz>> = rrules.all(RECURRENCE_LIMIT).dates;
 
-                println!("Repeating on the following dates (showing first 10): ");
-                println!("{:#?}", &datetimes[..10]);
-            }
+            println!("Repeating on the following dates (showing first 10): ");
+            println!("{:#?}", &datetimes[..10]);
         }
     }
 }

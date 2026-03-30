@@ -166,6 +166,20 @@ impl CalendarDateTime {
             tzid: dt.offset().tz_id().to_owned(),
         }
     }
+
+    /// Create a new instance with the given timezone
+    #[cfg(feature = "chrono-tz")]
+    pub fn as_dt_with_tz(self) -> Option<DateTime<chrono_tz::Tz>> {
+        if let Self::WithTimezone { date_time, tzid } = self {
+            let date = date_time
+                .and_local_timezone(tzid.parse::<chrono_tz::Tz>().ok().unwrap())
+                .single()
+                .unwrap();
+            Some(date)
+        } else {
+            None
+        }
+    }
 }
 
 /// will return [`None`] if date is not valid
@@ -212,6 +226,38 @@ impl From<(NaiveDateTime, chrono_tz::Tz)> for CalendarDateTime {
         Self::WithTimezone {
             date_time,
             tzid: tzid.name().into(),
+        }
+    }
+}
+
+#[cfg(feature = "chrono-tz")]
+impl From<&DateTime<chrono_tz::Tz>> for CalendarDateTime {
+    fn from(dt: &DateTime<chrono_tz::Tz>) -> CalendarDateTime {
+        let tz = dt.timezone();
+        if tz == chrono_tz::UTC {
+            CalendarDateTime::Utc(dt.with_timezone(&Utc))
+        } else {
+            CalendarDateTime::WithTimezone {
+                date_time: dt.naive_local(),
+                tzid: tz.to_string(),
+            }
+        }
+    }
+}
+
+#[cfg(feature = "recurrence")]
+impl From<&DateTime<rrule::Tz>> for CalendarDateTime {
+    fn from(dt: &DateTime<rrule::Tz>) -> CalendarDateTime {
+        let tz = dt.timezone();
+        if tz == rrule::Tz::UTC {
+            CalendarDateTime::Utc(dt.with_timezone(&Utc))
+        } else if tz == rrule::Tz::LOCAL {
+            CalendarDateTime::Floating(dt.naive_local())
+        } else {
+            CalendarDateTime::WithTimezone {
+                date_time: dt.naive_local(),
+                tzid: tz.to_string(),
+            }
         }
     }
 }
