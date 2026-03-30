@@ -18,7 +18,7 @@ pub enum CUType {
 
 impl CUType {
     pub(crate) fn from_str(s: &str) -> Option<Self> {
-        match s {
+        match s.to_uppercase().as_str() {
             "INDIVIDUAL" => Some(CUType::Individual),
             "GROUP" => Some(CUType::Group),
             "RESOURCE" => Some(CUType::Resource),
@@ -60,7 +60,7 @@ pub enum Role {
 
 impl Role {
     pub(crate) fn from_str(s: &str) -> Option<Self> {
-        match s {
+        match s.to_uppercase().as_str() {
             "CHAIR" => Some(Role::Chair),
             "REQ-PARTICIPANT" => Some(Role::ReqParticipant),
             "OPT-PARTICIPANT" => Some(Role::OptParticipant),
@@ -98,9 +98,9 @@ pub enum PartStat {
     Tentative,
     /// DELEGATED       (RFC 5545, Section 3.2.12)
     Delegated,
-    /// COMPLETED       (RFC 5545, Section 3.2.12)
+    /// COMPLETED       (RFC 5545, Section 3.2.12; VTODO only)
     Completed,
-    /// TENTATIVE       (RFC 5545, Section 3.2.12)
+    /// IN-PROCESS      (RFC 5545, Section 3.2.12; VTODO only)
     InProcess,
 }
 
@@ -134,6 +134,41 @@ impl From<PartStat> for Parameter {
             },
         )
     }
+}
+
+/// Encode a list of CAL-ADDRESS URIs as a comma-separated list of individually
+/// quoted strings, as required by RFC 5545 §3.2.4, §3.2.5, and §3.2.11:
+///
+/// > The individual calendar address parameter values MUST each be
+/// > specified in a quoted-string.
+///
+/// Example output: `"mailto:a@example.com","mailto:b@example.com"`
+fn encode_cal_address_list(addrs: &[String]) -> String {
+    addrs
+        .iter()
+        .map(|a| format!("\"{}\"", a))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// Decode a comma-separated list of individually quoted CAL-ADDRESS URIs back
+/// into plain address strings.  Handles both quoted (`"mailto:a@b"`) and
+/// unquoted (`mailto:a@b`) entries so the decoder is tolerant of both forms.
+fn decode_cal_address_list(s: &str) -> Vec<String> {
+    // Split on `","` boundaries first (the RFC-correct form), then fall back
+    // to a simple comma split for unquoted values produced by other clients.
+    s.split(',')
+        .map(|part| {
+            let trimmed = part.trim();
+            // Strip surrounding double-quotes if present.
+            if trimmed.starts_with('"') && trimmed.ends_with('"') && trimmed.len() >= 2 {
+                trimmed[1..trimmed.len() - 1].to_string()
+            } else {
+                trimmed.to_string()
+            }
+        })
+        .filter(|s| !s.is_empty())
+        .collect()
 }
 
 /// [RFC 5545, Section 3.8.4.1](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.1)
@@ -261,8 +296,11 @@ impl From<Attendee> for Property {
         if let Some(cutype) = attendee.cutype {
             prop.append_parameter(cutype);
         }
+        // RFC 5545 §3.2.11: each MEMBER address MUST be in a quoted-string.
+        // We store the pre-quoted comma-separated list so that
+        // `quote_if_contains_colon` in `to_line()` does not double-quote it.
         if !attendee.member.is_empty() {
-            prop.add_parameter("MEMBER", &attendee.member.join(","));
+            prop.add_parameter("MEMBER", &encode_cal_address_list(&attendee.member));
         }
         if let Some(role) = attendee.role {
             prop.append_parameter(role);
@@ -273,11 +311,19 @@ impl From<Attendee> for Property {
         if let Some(rsvp) = attendee.rsvp {
             prop.add_parameter("RSVP", if rsvp { "TRUE" } else { "FALSE" });
         }
+        // RFC 5545 §3.2.5: each DELEGATED-TO address MUST be in a quoted-string.
         if !attendee.delegated_to.is_empty() {
-            prop.add_parameter("DELEGATED-TO", &attendee.delegated_to.join(","));
+            prop.add_parameter(
+                "DELEGATED-TO",
+                &encode_cal_address_list(&attendee.delegated_to),
+            );
         }
+        // RFC 5545 §3.2.4: each DELEGATED-FROM address MUST be in a quoted-string.
         if !attendee.delegated_from.is_empty() {
-            prop.add_parameter("DELEGATED-FROM", &attendee.delegated_from.join(","));
+            prop.add_parameter(
+                "DELEGATED-FROM",
+                &encode_cal_address_list(&attendee.delegated_from),
+            );
         }
         if let Some(sentby) = attendee.sent_by {
             prop.add_parameter("SENT-BY", &sentby);
@@ -307,9 +353,7 @@ impl TryFrom<&Property> for Attendee {
 
         let cutype = prop.get_param_as("CUTYPE", CUType::from_str);
         let member = prop
-            .get_param_as("MEMBER", |s| {
-                Some(s.split(',').map(|s| s.trim().to_string()).collect())
-            })
+            .get_param_as("MEMBER", |s| Some(decode_cal_address_list(s)))
             .unwrap_or_default();
         let role = prop.get_param_as("ROLE", Role::from_str);
         let partstat = prop.get_param_as("PARTSTAT", PartStat::from_str);
@@ -319,14 +363,10 @@ impl TryFrom<&Property> for Attendee {
             _ => None,
         });
         let delegated_to = prop
-            .get_param_as("DELEGATED-TO", |s| {
-                Some(s.split(',').map(|s| s.trim().to_string()).collect())
-            })
+            .get_param_as("DELEGATED-TO", |s| Some(decode_cal_address_list(s)))
             .unwrap_or_default();
         let delegated_from = prop
-            .get_param_as("DELEGATED-FROM", |s| {
-                Some(s.split(',').map(|s| s.trim().to_string()).collect())
-            })
+            .get_param_as("DELEGATED-FROM", |s| Some(decode_cal_address_list(s)))
             .unwrap_or_default();
         let sentby = prop.get_param_as("SENT-BY", |s| Some(s.to_string()));
         let cn = prop.get_param_as("CN", |s| Some(s.to_string()));
@@ -349,12 +389,13 @@ impl TryFrom<&Property> for Attendee {
         })
     }
 }
+
 #[cfg(test)]
-mod tests {
+mod test_attendee {
     use super::*;
 
     #[test]
-    fn attendee_to_property_basic() {
+    fn to_property_basic() {
         let attendee = Attendee::new("mailto:test@example.com".to_string());
         let prop: Property = attendee.into();
 
@@ -364,7 +405,7 @@ mod tests {
     }
 
     #[test]
-    fn attendee_to_property_full() {
+    fn to_property_full() {
         let attendee = Attendee::new("mailto:test@example.com".to_string())
             .cutype(CUType::Individual)
             .role(Role::ReqParticipant)
@@ -383,7 +424,6 @@ mod tests {
         assert_eq!(prop.key(), "ATTENDEE");
         assert_eq!(prop.value(), "mailto:test@example.com");
 
-        // Check parameters
         assert_eq!(prop.params().get("CUTYPE").unwrap().value(), "INDIVIDUAL");
         assert_eq!(
             prop.params().get("ROLE").unwrap().value(),
@@ -392,13 +432,14 @@ mod tests {
         assert_eq!(prop.params().get("PARTSTAT").unwrap().value(), "ACCEPTED");
         assert_eq!(prop.params().get("RSVP").unwrap().value(), "TRUE");
         assert_eq!(prop.params().get("CN").unwrap().value(), "Test User");
+        // Multi-value URI params must be stored as individually quoted addresses.
         assert_eq!(
             prop.params().get("MEMBER").unwrap().value(),
-            "mailto:member1@example.com,mailto:member2@example.com"
+            "\"mailto:member1@example.com\",\"mailto:member2@example.com\""
         );
         assert_eq!(
             prop.params().get("DELEGATED-TO").unwrap().value(),
-            "mailto:delegate@example.com"
+            "\"mailto:delegate@example.com\""
         );
         assert_eq!(
             prop.params().get("SENT-BY").unwrap().value(),
@@ -412,7 +453,7 @@ mod tests {
     }
 
     #[test]
-    fn property_to_attendee_basic() {
+    fn from_property_basic() {
         let prop = Property::new("ATTENDEE", "mailto:test@example.com").done();
         let attendee = Attendee::try_from(&prop).unwrap();
 
@@ -430,7 +471,9 @@ mod tests {
     }
 
     #[test]
-    fn property_to_attendee_full() {
+    fn from_property_full() {
+        // Simulate a Property whose parameter values are stored without their
+        // surrounding quotes (the internal representation after parsing).
         let prop = Property::new("ATTENDEE", "mailto:test@example.com")
             .add_parameter("CUTYPE", "INDIVIDUAL")
             .add_parameter("ROLE", "REQ-PARTICIPANT")
@@ -439,10 +482,11 @@ mod tests {
             .add_parameter("CN", "Test User")
             .add_parameter(
                 "MEMBER",
-                "mailto:member1@example.com,mailto:member2@example.com",
+                // Quoted form as stored after encode_cal_address_list / as seen in real ICS.
+                "\"mailto:member1@example.com\",\"mailto:member2@example.com\"",
             )
-            .add_parameter("DELEGATED-TO", "mailto:delegate@example.com")
-            .add_parameter("DELEGATED-FROM", "mailto:delegator@example.com")
+            .add_parameter("DELEGATED-TO", "\"mailto:delegate@example.com\"")
+            .add_parameter("DELEGATED-FROM", "\"mailto:delegator@example.com\"")
             .add_parameter("SENT-BY", "mailto:sender@example.com")
             .add_parameter("DIR", "ldap://example.com/cn=Test%20User")
             .add_parameter("LANGUAGE", "en")
@@ -483,13 +527,33 @@ mod tests {
     }
 
     #[test]
-    fn attendee_try_from_invalid_property() {
+    fn try_from_invalid_property() {
         let prop = Property::new("NOT_ATTENDEE", "mailto:test@example.com").done();
         assert!(Attendee::try_from(&prop).is_err());
     }
 
+    /// Unquoted multi-value params (produced by other clients) are still parsed correctly.
     #[test]
-    fn attendee_roundtrip() {
+    fn from_property_unquoted_multi_value() {
+        let prop = Property::new("ATTENDEE", "mailto:test@example.com")
+            .add_parameter(
+                "MEMBER",
+                "mailto:member1@example.com,mailto:member2@example.com",
+            )
+            .done();
+
+        let attendee = Attendee::try_from(&prop).unwrap();
+        assert_eq!(
+            attendee.member,
+            vec![
+                "mailto:member1@example.com".to_string(),
+                "mailto:member2@example.com".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn roundtrip() {
         let original = Attendee::new("mailto:roundtrip@example.com".to_string())
             .cutype(CUType::Resource)
             .role(Role::OptParticipant)
@@ -506,5 +570,19 @@ mod tests {
         let reconstructed = Attendee::try_from(&prop).unwrap();
 
         assert_eq!(original, reconstructed);
+    }
+
+    /// RFC 5545 §2: all parameter names and enumerated values are case-insensitive.
+    #[test]
+    fn from_str_case_insensitive() {
+        assert_eq!(CUType::from_str("individual"), Some(CUType::Individual));
+        assert_eq!(CUType::from_str("Group"), Some(CUType::Group));
+        assert_eq!(Role::from_str("chair"), Some(Role::Chair));
+        assert_eq!(
+            Role::from_str("req-participant"),
+            Some(Role::ReqParticipant)
+        );
+        assert_eq!(PartStat::from_str("accepted"), Some(PartStat::Accepted));
+        assert_eq!(PartStat::from_str("In-Process"), Some(PartStat::InProcess));
     }
 }

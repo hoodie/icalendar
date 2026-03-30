@@ -170,6 +170,12 @@ impl Property {
     }
 
     fn quote_if_contains_colon(input: &str) -> String {
+        // Already quoted (e.g. pre-quoted multi-value URI lists like
+        // `"mailto:a@b.com","mailto:c@d.com"`): emit as-is to avoid
+        // wrapping in an extra outer pair of double-quotes.
+        if input.starts_with('"') && input.ends_with('"') {
+            return input.to_string();
+        }
         if input.contains([':', ';']) {
             let mut quoted = String::with_capacity(input.len() + 2);
             quoted.push('"');
