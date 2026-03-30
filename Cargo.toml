@@ -123,6 +123,11 @@ path = "examples/rdate.rs"
 required-features = ["recurrence", "chrono-tz"]
 
 [[example]]
+name = "attendee_parse"
+path = "examples/attendee_parse.rs"
+required-features = ["parser"]
+
+[[example]]
 name = "recurrence_parse"
 path = "examples/recurrence_parse.rs"
 required-features = ["recurrence", "parser"]

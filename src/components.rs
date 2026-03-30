@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
 
-use crate::properties::*;
+use crate::{Attendee, properties::*};
 use date_time::{format_utc_date_time, naive_date_to_property, parse_utc_date_time};
 
 pub mod alarm;
@@ -268,7 +268,7 @@ pub trait Component {
 
     /// Adds an attendee
     fn attendee(&mut self, attendee: Attendee) -> &mut Self {
-       self.append_multi_property(attendee)
+        self.append_multi_property(attendee)
     }
 
     /// Returns all `ATTENDEE` properties parsed as `Attendee` structs.

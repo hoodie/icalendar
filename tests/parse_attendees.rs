@@ -7,7 +7,6 @@ use icalendar::parser::{read_calendar, unfold};
 fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap())
         .join("fixtures")
-        .join("icalendar-rb")
         .join(name)
 }
 
