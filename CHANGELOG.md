@@ -1,5 +1,18 @@
 # Changelog
 
+### [v0.17.7](https://github.com/hoodie/icalendar/compare/v0.17.6...v0.17.7) (2026-03-30)
+
+#### Features
+
+* add RDATE/EXDATE helpers
+([27c3517](https://github.com/hoodie/icalendar/commit/27c35176d0a1ac780e516ec3499b2324cf893aae))
+* Add support for recurrence rules
+([388c389](https://github.com/hoodie/icalendar/commit/388c389e72c3a2487aad08ebb344f22bccad795f))
+* impl serde traits for Calendar
+([c6b3095](https://github.com/hoodie/icalendar/commit/c6b3095e7e0d6ede9363758c5e9a941bf108508f))
+* add reverse From implementations
+([bdd474f](https://github.com/hoodie/icalendar/commit/bdd474f614baf79c6b2f009f4060edfc9cde7663))
+
 ### [v0.17.6](https://github.com/hoodie/icalendar/compare/v0.17.5...v0.17.6) (2025-12-14)
 
 #### Features
