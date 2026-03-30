@@ -1,0 +1,10 @@
+BEGIN:VEVENT
+DTSTAMP:20050118T211523Z
+UID:test-three-attendees-uid
+DTSTART:20050120T170000Z
+DTEND:20050120T184500Z
+SUMMARY:Event with Three Attendees
+ATTENDEE:mailto:attendee1@example.com
+ATTENDEE;ROLE=OPT-PARTICIPANT;PARTSTAT=TENTATIVE:mailto:attendee2@example.com
+ATTENDEE;CUTYPE=RESOURCE;MEMBER="mailto:res1@example.com,mailto:res2@example.com";RSVP=FALSE:mailto:resourceattendee@example.com
+END:VEVENT

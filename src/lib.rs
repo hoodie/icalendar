@@ -55,7 +55,7 @@ pub use crate::{
         alarm::{Alarm, Related, Trigger},
         date_time::{CalendarDateTime, DatePerhapsTime},
     },
-    properties::{Class, EventStatus, Parameter, Property, TodoStatus},
+    properties::{Class, EventStatus, Parameter, Property, TodoStatus, Attendee, CUType, Role, PartStat},
     value_types::ValueType,
 };
 

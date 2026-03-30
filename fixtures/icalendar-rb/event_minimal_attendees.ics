@@ -1,0 +1,8 @@
+BEGIN:VEVENT
+DTSTAMP:20050118T211523Z
+UID:test-single-attendee-uid
+DTSTART:20050120T170000Z
+DTEND:20050120T184500Z
+SUMMARY:Simple Event with One Attendee
+ATTENDEE:mailto:singleattendee@example.com
+END:VEVENT

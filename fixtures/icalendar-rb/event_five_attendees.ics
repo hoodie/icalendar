@@ -1,0 +1,12 @@
+BEGIN:VEVENT
+DTSTAMP:20050118T211523Z
+UID:test-many-attendees-uid
+DTSTART:20050120T170000Z
+DTEND:20050120T184500Z
+SUMMARY:Event with Many Attendees for Load Testing
+ATTENDEE:mailto:attendee1@example.com
+ATTENDEE;CN="Attendee Two";ROLE=CHAIR:mailto:attendee2@example.com
+ATTENDEE;PARTSTAT=DECLINED;RSVP=TRUE:mailto:attendee3@example.com
+ATTENDEE;CUTYPE=ROOM;MEMBER="mailto:room1@example.com":mailto:roomattendee@example.com
+ATTENDEE;CN="Full Attendee";CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE;MEMBER="mailto:member@example.com";DELEGATED-TO="mailto:delto@example.com";DELEGATED-FROM="mailto:delfrom@example.com";SENT-BY="mailto:sentby@example.com";DIR="http://dir.example.com";LANGUAGE=fr:mailto:fullattendee@example.com
+END:VEVENT
