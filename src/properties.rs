@@ -7,6 +7,8 @@ use std::{
 
 use crate::value_types::ValueType;
 
+pub mod attendee;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// key-value pairs inside of `Property`s
 pub struct Parameter {
@@ -168,6 +170,12 @@ impl Property {
     }
 
     fn quote_if_contains_colon(input: &str) -> String {
+        // Already quoted (e.g. pre-quoted multi-value URI lists like
+        // `"mailto:a@b.com","mailto:c@d.com"`): emit as-is to avoid
+        // wrapping in an extra outer pair of double-quotes.
+        if input.starts_with('"') && input.ends_with('"') {
+            return input.to_string();
+        }
         if input.contains([':', ';']) {
             let mut quoted = String::with_capacity(input.len() + 2);
             quoted.push('"');
@@ -368,31 +376,6 @@ impl From<chrono::Duration> for Property {
         Property::new("DURATION", duration.to_string())
     }
 }
-//pub enum AttendeeRole {
-//    /// CHAIR           (RFC 5545, Section 3.2.16)
-//    Chair,
-//
-//    /// REQ-PARTICIPANT (RFC 5545, Section 3.2.16)
-//    ReqParticipant,
-//
-//    /// OPT-PARTICIPANT (RFC 5545, Section 3.2.16)
-//    OptParticipant,
-//
-//    /// NON-PARTICIPANT (RFC 5545, Section 3.2.16)
-//    NonParticipant
-//}
-//
-//pub struct Attendee {
-//    cn: String,
-//    role: AttendeeRole,
-//    delegated_from: String,
-//    part_stat: String,
-//    sent_by: String,
-//    dir: String,
-//}
-//
-//impl Into<Property> for Attendee {
-//}
 
 // Fold a content line as described in RFC 5545, Section 3.1
 #[allow(clippy::indexing_slicing)]

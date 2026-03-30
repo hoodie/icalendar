@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
 
-use crate::properties::*;
+use crate::{Attendee, properties::*};
 use date_time::{format_utc_date_time, naive_date_to_property, parse_utc_date_time};
 
 pub mod alarm;
@@ -266,11 +266,22 @@ pub trait Component {
         self.property_value("DESCRIPTION")
     }
 
-    ///// Set the description
-    ///// TODO `Attendee` needs to be its own type
-    //fn attendee(&mut self, desc: &str) -> &mut Self {
-    //    self.add_multi_property("ATTENDEE", desc) // multi_properties should be a multi-map
-    //}
+    /// Adds an attendee
+    fn attendee(&mut self, attendee: Attendee) -> &mut Self {
+        self.append_multi_property(attendee)
+    }
+
+    /// Returns all `ATTENDEE` properties parsed as `Attendee` structs.
+    fn get_attendees(&self) -> Vec<Attendee> {
+        self.multi_properties()
+            .get("ATTENDEE")
+            .map(|v| {
+                v.iter()
+                    .filter_map(|p| Attendee::try_from(p).ok())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    }
 
     /// Set the UID
     fn uid(&mut self, uid: &str) -> &mut Self {
