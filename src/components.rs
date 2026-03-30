@@ -494,23 +494,35 @@ pub trait EventLike: Component {
             .collect::<Vec<_>>()
             .join("\n");
 
-        let rdates = rruleset
-            .get_rdate()
-            .iter()
-            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
-            .collect::<Vec<_>>()
-            .join(",");
+        self.add_property("RRULE", rrule_str);
 
-        let exdates = rruleset
-            .get_exdate()
-            .iter()
-            .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
-            .collect::<Vec<_>>()
-            .join(",");
+        let exdates = rruleset.get_exdate();
 
-        self.add_property("RRULE", rrule_str)
-            .add_multi_property("RDATE", &rdates)
-            .add_multi_property("EXDATE", &exdates);
+        // Only process and add EXDATE if there are any exclusion dates.
+        if !exdates.is_empty() {
+            self.add_multi_property(
+                "EXDATE",
+                &exdates
+                    .iter()
+                    .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
+        }
+
+        let rdates = rruleset.get_rdate();
+
+        // Only process and add RDATE if there are any inclusion dates.
+        if !rdates.is_empty() {
+            self.add_multi_property(
+                "RDATE",
+                &rdates
+                    .iter()
+                    .map(|dt| dt.format("%Y%m%dT%H%M%SZ").to_string())
+                    .collect::<Vec<_>>()
+                    .join(","),
+            );
+        }
 
         Ok(self)
     }
@@ -859,6 +871,27 @@ mod tests {
             output_rrules.first().unwrap().get_by_weekday(),
             [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
         );
+    }
+
+    #[test]
+    #[cfg(feature = "recurrence")]
+    fn no_empty_rdate_or_exdate_added() {
+        use crate::{Event, EventLike, Frequency, RRule};
+        use chrono::NaiveDate;
+
+        // Create an event with an RRULE, but no RDATE or EXDATE
+        let naive_date = NaiveDate::from_ymd_opt(2026, 3, 30).unwrap();
+        let event = Event::new()
+            .starts(naive_date)
+            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
+            .unwrap()
+            .done();
+
+        let serialized = event.to_string();
+
+        // Ensure no empty RDATE or EXDATE lines are present
+        assert!(!serialized.contains("RDATE:"));
+        assert!(!serialized.contains("EXDATE:"));
     }
 }
 
