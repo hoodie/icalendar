@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.8](https://github.com/hoodie/icalendar/compare/v0.17.7...v0.17.8) (2026-03-31)
+
+#### Features
+
+* add ATTENDEE property (RFC 5545, Section 3.8.4.1)
+([da7a1f1](https://github.com/hoodie/icalendar/commit/da7a1f1e65d884606299dd6fab7e03b663af50ce))
+
 ### [v0.17.7](https://github.com/hoodie/icalendar/compare/v0.17.6...v0.17.7) (2026-03-30)
 
 #### Features
