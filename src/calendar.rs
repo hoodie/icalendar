@@ -294,7 +294,6 @@ impl Calendar {
                 _ => None,
             })
     }
-    // TODO .alarms() ?
 }
 
 impl fmt::Display for Calendar {

@@ -84,8 +84,8 @@ pub enum RecurrenceError {
 #[cfg(all(test, feature = "parser"))]
 mod test_recurrence_tzid {
     use crate::{
-        Calendar, CalendarComponent, Event, EventLike, Frequency, NWeekday, RRule, Tz,
-        UnvalidatedRRule, Weekday, components::date_time::CalendarDateTime,
+        Calendar, Event, EventLike, Frequency, NWeekday, RRule, Tz, UnvalidatedRRule, Weekday,
+        components::date_time::CalendarDateTime,
     };
     use chrono::{NaiveDate, TimeZone, Utc};
 
@@ -165,17 +165,7 @@ mod test_recurrence_tzid {
         let serialized = calendar.to_string();
         let reparsed: Calendar = serialized.parse().unwrap();
 
-        let reparsed_event = reparsed
-            .components
-            .iter()
-            .find_map(|c| {
-                if let CalendarComponent::Event(e) = c {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
-            .unwrap();
+        let reparsed_event = reparsed.events().next().unwrap();
 
         let reparsed_dates = reparsed_event
             .get_recurrence()
@@ -235,17 +225,7 @@ mod test_recurrence_tzid {
         calendar.push(event);
         let reparsed: Calendar = calendar.to_string().parse().unwrap();
 
-        let reparsed_event = reparsed
-            .components
-            .iter()
-            .find_map(|c| {
-                if let CalendarComponent::Event(e) = c {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
-            .unwrap();
+        let reparsed_event = reparsed.events().next().unwrap();
 
         let reparsed_rrule_set = reparsed_event
             .get_recurrence()
@@ -283,17 +263,7 @@ mod test_recurrence_tzid {
         calendar.push(event);
         let reparsed: Calendar = calendar.to_string().parse().unwrap();
 
-        let reparsed_event = reparsed
-            .components
-            .iter()
-            .find_map(|c| {
-                if let CalendarComponent::Event(e) = c {
-                    Some(e)
-                } else {
-                    None
-                }
-            })
-            .unwrap();
+        let reparsed_event = reparsed.events().next().unwrap();
 
         let reparsed_rrule_set = reparsed_event
             .get_recurrence()
