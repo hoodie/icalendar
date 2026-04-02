@@ -531,3 +531,176 @@ mod test_recurrence_properties {
         );
     }
 }
+
+/// Tests that EXDATEs correctly suppress occurrences when combined with `.recurrence()`.
+#[cfg(all(test, feature = "recurrence"))]
+#[allow(unused_imports)]
+mod test_exdate {
+    use chrono::TimeZone as _;
+    use chrono_tz::Europe::Berlin;
+
+    use crate::{
+        Component, Event, EventLike as _, Frequency, RRule, components::date_time::CalendarDateTime,
+    };
+
+    /// `.exdate()` must write to the `EXDATE` multi-property, never to `RDATE`.
+    ///
+    /// This is the sharpest regression test for the `rdate`-instead-of-`exdate` typo:
+    /// if `exdate()` ever routes to `rdate()` under the hood, this assertion fails.
+    #[test]
+    fn exdate_writes_exdate_property_not_rdate() {
+        let dt_start = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 2, 9, 0, Berlin).unwrap();
+        let excluded = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 4, 9, 0, Berlin).unwrap();
+
+        let event = Event::new()
+            .starts(dt_start)
+            .recurrence(RRule::default().count(5).freq(Frequency::Daily))
+            .unwrap()
+            .exdate(excluded)
+            .done();
+
+        let multi = event.multi_properties();
+        assert!(
+            multi.contains_key("EXDATE"),
+            "exdate() must write an EXDATE property"
+        );
+        assert!(
+            !multi.contains_key("RDATE"),
+            "exdate() must NOT write an RDATE property — \
+             this catches the rdate()-instead-of-exdate() typo"
+        );
+    }
+
+    /// An EXDATE added *after* `.recurrence()` must suppress the matching occurrence.
+    #[test]
+    fn exdate_after_recurrence_suppresses_occurrence() {
+        // Daily rule for 5 days starting 2025-06-02 09:00 Berlin time.
+        // We exclude the third occurrence (2025-06-04).
+        let dt_start = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 2, 9, 0, Berlin).unwrap();
+        let excluded = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 4, 9, 0, Berlin).unwrap();
+
+        let event = Event::new()
+            .starts(dt_start)
+            .recurrence(RRule::default().count(5).freq(Frequency::Daily))
+            .unwrap()
+            .exdate(excluded)
+            .done();
+
+        let dates = event
+            .get_recurrence()
+            .expect("should have a valid recurrence")
+            .all(10)
+            .dates;
+
+        assert_eq!(
+            dates.len(),
+            4,
+            "one of the five occurrences should have been suppressed by EXDATE"
+        );
+
+        let excluded_naive = chrono::NaiveDate::from_ymd_opt(2025, 6, 4)
+            .unwrap()
+            .and_hms_opt(9, 0, 0)
+            .unwrap();
+        for dt in &dates {
+            assert_ne!(
+                dt.naive_local(),
+                excluded_naive,
+                "the excluded date (2025-06-04) must not appear in the occurrence list"
+            );
+        }
+    }
+
+    /// An EXDATE must survive a serialize → parse round-trip and still suppress
+    /// the matching occurrence after reparsing.
+    #[cfg(feature = "parser")]
+    #[test]
+    fn exdate_round_trips_through_serialization() {
+        use crate::Calendar;
+
+        let dt_start = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 2, 9, 0, Berlin).unwrap();
+        let excluded = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 4, 9, 0, Berlin).unwrap();
+
+        let event = Event::new()
+            .starts(dt_start)
+            .recurrence(RRule::default().count(5).freq(Frequency::Daily))
+            .unwrap()
+            .exdate(excluded)
+            .done();
+
+        let original_dates = event
+            .get_recurrence()
+            .expect("original event should have a valid recurrence")
+            .all(10)
+            .dates;
+
+        let mut calendar = Calendar::new();
+        calendar.push(event);
+        let reparsed: Calendar = calendar.to_string().parse().unwrap();
+        let reparsed_event = reparsed.events().next().unwrap();
+
+        // The EXDATE property must be present after round-trip.
+        assert!(
+            reparsed_event.multi_properties().contains_key("EXDATE"),
+            "EXDATE multi-property must survive serialization round-trip"
+        );
+
+        let reparsed_dates = reparsed_event
+            .get_recurrence()
+            .expect("reparsed event should have a valid recurrence")
+            .all(10)
+            .dates;
+
+        assert_eq!(
+            original_dates, reparsed_dates,
+            "occurrence list must be identical before and after serialization round-trip"
+        );
+        assert_eq!(reparsed_dates.len(), 4);
+    }
+
+    /// Multiple EXDATEs each suppress their respective occurrence.
+    #[test]
+    fn multiple_exdates_each_suppress_one_occurrence() {
+        let dt_start = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 2, 9, 0, Berlin).unwrap();
+        let ex1 = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 3, 9, 0, Berlin).unwrap();
+        let ex2 = CalendarDateTime::from_ymd_hm_tzid(2025, 6, 5, 9, 0, Berlin).unwrap();
+
+        let event = Event::new()
+            .starts(dt_start)
+            .recurrence(RRule::default().count(5).freq(Frequency::Daily))
+            .unwrap()
+            .exdate(ex1)
+            .exdate(ex2)
+            .done();
+
+        let dates = event
+            .get_recurrence()
+            .expect("should have a valid recurrence")
+            .all(10)
+            .dates;
+
+        assert_eq!(
+            dates.len(),
+            3,
+            "two of five occurrences should be suppressed"
+        );
+
+        let excluded = [
+            chrono::NaiveDate::from_ymd_opt(2025, 6, 3)
+                .unwrap()
+                .and_hms_opt(9, 0, 0)
+                .unwrap(),
+            chrono::NaiveDate::from_ymd_opt(2025, 6, 5)
+                .unwrap()
+                .and_hms_opt(9, 0, 0)
+                .unwrap(),
+        ];
+        for dt in &dates {
+            assert!(
+                !excluded.contains(&dt.naive_local()),
+                "excluded date {:?} must not appear in the occurrence list",
+                dt.naive_local()
+            );
+        }
+    }
+}
