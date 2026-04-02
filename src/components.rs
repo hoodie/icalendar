@@ -43,7 +43,7 @@ impl From<Other> for InnerComponent {
 
 impl InnerComponent {
     /// End of builder pattern.
-    /// copies over everything
+    /// moves all fields out of `self` and into the returned value
     pub fn done(&mut self) -> Self {
         InnerComponent {
             properties: mem::take(&mut self.properties),
@@ -202,7 +202,7 @@ pub trait Component {
 
     /// Defines the relative priority.
     ///
-    /// Ranges from 0 to 10, larger values will be truncated
+    /// Ranges from 0 to 10, larger values will be clamped to 10
     fn priority(&mut self, priority: u32) -> &mut Self {
         let priority = std::cmp::min(priority, 10);
         self.add_property("PRIORITY", priority.to_string())
@@ -440,7 +440,7 @@ pub trait EventLike: Component {
         self.add_property("LOCATION", location)
     }
 
-    /// Removes the LOCATION with a VVENUE UID
+    /// Removes the `LOCATION` property.
     fn remove_location(&mut self) -> &mut Self {
         self.remove_property("LOCATION")
     }
@@ -450,7 +450,7 @@ pub trait EventLike: Component {
         self.property_value("LOCATION")
     }
 
-    /// Set recurrence rules from an [`rrule::RRule`].
+    /// Set recurrence rules from an [`UnvalidatedRRule`](crate::UnvalidatedRRule).
     ///
     /// The `DTSTART` of this component is used as the start date for the recurrence rule,
     /// so `.starts()` or `.all_day()` must be called before `.recurrence()`.
@@ -556,7 +556,7 @@ pub trait EventLike: Component {
         b.parse::<rrule::RRuleSet>().map_err(RecurrenceError::Rule)
     }
 
-    /// Add an RDATE to this event
+    /// Add an RDATE to this component
     ///
     /// [3.8.5.2.  Recurrence Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.2)
     fn rdate<T: Into<DatePerhapsTime>>(&mut self, rdate: T) -> &mut Self {
@@ -599,7 +599,7 @@ macro_rules! component_impl {
                 &self.inner.properties
             }
 
-            /// Read-only access to `properties`
+            /// Read-only access to child `components`
             fn components(&self) -> &[Other] {
                 &self.inner.components
             }

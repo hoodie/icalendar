@@ -53,12 +53,13 @@ pub(crate) fn dt_start_to_rrule_datetime(
 /// Errors that can occur when setting or parsing recurrence rules.
 ///
 /// Returned by [`EventLike::recurrence`](crate::EventLike::recurrence) and
-/// [`EventLike::try_recurrence`](crate::EventLike::try_recurrence).
+/// [`EventLike::get_recurrence`](crate::EventLike::get_recurrence).
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum RecurrenceError {
     /// `DTSTART` was not set on the component before calling
-    /// [`recurrence()`](crate::EventLike::recurrence). Call `.starts()` or
-    /// `.all_day()` first.
+    /// [`recurrence()`](crate::EventLike::recurrence), or it could not be
+    /// parsed by [`get_recurrence()`](crate::EventLike::get_recurrence).
+    /// Call `.starts()` or `.all_day()` first.
     #[error("DTSTART must be set before calling recurrence()")]
     MissingDtStart,
 

@@ -14,13 +14,13 @@ impl Todo {
         Default::default()
     }
 
-    /// Creates a new Event with a UID.
+    /// Creates a new Todo with a UID.
     pub fn with_uid(uid: &str) -> Self {
         Self::new().uid(uid).done()
     }
 
     /// End of builder pattern.
-    /// copies over everything
+    /// moves all fields out of `self` and into the returned value
     pub fn done(&mut self) -> Self {
         Todo {
             inner: self.inner.done(),

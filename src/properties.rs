@@ -65,7 +65,7 @@ impl From<&mut Property> for Property {
 }
 
 impl Property {
-    /// Guess what this does :D
+    /// Creates a new [`Property`] with the given `key` and `val` and no parameters.
     pub fn new(key: impl Into<String>, val: impl Into<String>) -> Self {
         Property {
             key: key.into(),
@@ -75,7 +75,9 @@ impl Property {
     }
 
     #[deprecated]
-    /// if you already have `String`s I'll gladly take
+    /// Creates a new [`Property`] from already-owned `String` values.
+    ///
+    /// Prefer [`Property::new`] which accepts any `Into<String>`.
     pub fn new_pre_alloc(key: String, val: String) -> Self {
         Property {
             key,
