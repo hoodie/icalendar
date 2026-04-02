@@ -497,16 +497,18 @@ pub trait EventLike: Component {
     //     self.try_recurrence()?.ok()
     // }
 
-    /// Get recurrence rules, returning a parse error if the `RRULE` property is present
-    /// but invalid.
+    /// Get recurrence rules.
     ///
-    /// Returns `None` if no `RRULE` property is present on this component.
-    /// Returns `Some(Err(_))` if an `RRULE` is present but could not be parsed.
-    /// Returns `Some(Ok(_))` if the rule was parsed successfully.
+    /// Builds an [`rrule::RRuleSet`] from the component's `DTSTART`, `RRULE`, `RDATE`,
+    /// and `EXDATE` properties.
     ///
-    /// Prefer [`get_recurrence`](EventLike::get_recurrence) for the common case where you
-    /// trust the data source. Use this variant when working with parsed `.ics` input that
-    /// you did not produce yourself and want to surface errors to the caller.
+    /// Returns `Ok(RRuleSet)` if the recurrence data was parsed successfully.
+    /// Returns `Err(RecurrenceError)` if the component's recurrence properties could
+    /// not be parsed (e.g. missing or malformed `DTSTART`, invalid `RRULE` syntax).
+    ///
+    /// Note: when no `RRULE` is present the returned set will still yield the `DTSTART`
+    /// instant as its single occurrence (via an implicit `RDATE`), in accordance with
+    /// RFC 5545 §3.6.1.
     #[cfg(feature = "recurrence")]
     fn get_recurrence(&self) -> Result<rrule::RRuleSet, RecurrenceError> {
         use std::fmt::Write;
