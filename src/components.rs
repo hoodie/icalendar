@@ -477,12 +477,6 @@ pub trait EventLike: Component {
             .join("\n");
 
         self.add_property("RRULE", rrule_str);
-        for dt in rruleset.get_rdate() {
-            self.rdate(CalendarDateTime::from(dt));
-        }
-        for dt in rruleset.get_exdate() {
-            self.rdate(CalendarDateTime::from(dt));
-        }
 
         Ok(self)
     }
