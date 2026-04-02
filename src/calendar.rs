@@ -47,7 +47,7 @@ pub use calendar_component::CalendarComponent;
 ///     .collect::<Calendar>();
 /// ```
 ///
-/// ### `Calendar` is a container for `CalendarElement`
+/// ### `Calendar` is a container for `CalendarComponent`
 /// ```
 /// # use icalendar::*;
 /// let todo1 = Todo::new();
@@ -88,7 +88,7 @@ impl<U> Extend<U> for Calendar
 where
     U: Into<CalendarComponent>,
 {
-    /// Extends this `Calendar` with the contends of another.
+    /// Extends this `Calendar` with the elements of an iterator.
     fn extend<T>(&mut self, other: T)
     where
         T: IntoIterator<Item = U>,
@@ -143,7 +143,7 @@ impl Calendar {
         )
     }
 
-    /// Extends this `Calendar` with the contends of another.
+    /// Extends this `Calendar` with the elements of an iterator.
     pub fn extend<T, U>(&mut self, other: T)
     where
         T: IntoIterator<Item = U>,
@@ -193,9 +193,9 @@ impl Calendar {
         self
     }
 
-    /// Gets the value of the `TIMEZONE_ID` or `X-WR-TIMEZONE` property.
+    /// Gets the value of the `TIMEZONE-ID` or `X-WR-TIMEZONE` property.
     pub fn get_timezone(&self) -> Option<&str> {
-        self.property_value("TIMEZONE_ID")
+        self.property_value("TIMEZONE-ID")
             .or_else(|| self.property_value("X-WR-TIMEZONE"))
     }
 
