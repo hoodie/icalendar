@@ -5,7 +5,7 @@
 [![build](https://img.shields.io/github/actions/workflow/status/hoodie/icalendar/ci.yml?branch=main)](https://github.com/hoodie/icalendar/actions?query=workflow%3A"Continuous+Integration")
 [![Crates.io](https://img.shields.io/crates/d/icalendar)](https://crates.io/crates/icalendar)
 [![contributors](https://img.shields.io/github/contributors/hoodie/icalendar)](https://github.com/hoodie/icalendar/graphs/contributors)
-![maintenance](https://img.shields.io/maintenance/yes/2025)
+![maintenance](https://img.shields.io/maintenance/yes/2027)
 
 [![version](https://img.shields.io/crates/v/icalendar)](https://crates.io/crates/icalendar/)
 [![documentation](https://img.shields.io/badge/docs-latest-blue.svg)](https://docs.rs/icalendar/)
@@ -17,9 +17,11 @@ A builder and parser for [`rfc5545`](http://tools.ietf.org/html/rfc5545) iCalend
 
 You want to help make this more mature? Please talk to me, Pull Requests and suggestions are very welcome.
 
-## Examples
+## Usage & Documentation
 
-Below are two examples of how to use this library. See the `examples` directory as well as the documentation for many more.
+Please see the [documentation](https://docs.rs/icalendar/) for current examples.
+
+Below are a few examples of how to use this library. See the `examples` directory as well as the documentation for many more.
 
 ### Building a new Calendar
 
@@ -138,23 +140,35 @@ A [`Calendar`] represents a full calendar, which contains multiple [`Component`]
 Thanks to the [`rrule`](https://crates.io/crates/rrule) crate and [friendly community contribution](https://github.com/hoodie/icalendar/pull/128), you can also add recurrence rules to your events and todos. See the documentation for `Event::recurrence` and `Todo::recurrence` for details.
 We currently reexport a select subset of `rrule` types. Should you experience compatibility issues because the maintainer (me) has not yet updated `icalendar` to reexport the latest `rrule` version, please feel free to open a PR.
 
-## License
-
-Icalendar (this crate) is licensed under either of
-
-- Apache License, Version 2.0, (LICENSE-APACHE or <http://www.apache.org/licenses/LICENSE-2.0>)
-- MIT license (LICENSE-MIT or <http://opensource.org/licenses/MIT>)
-
-at your option.
-
-## Contribution
+## Contributing
 
 Any help in form of descriptive and friendly [issues](https://github.com/hoodie/icalendar/issues) or comprehensive pull requests are welcome!
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in icalendar by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions.
+
+### Conventions
+
+The Changelog of this library is generated from its commit log, there any commit message must conform with <https://www.conventionalcommits.org/en/v1.0.0/>. For simplicity you could make your commits with [convco](https://crates.io/crates/convco).
+
+### Recognition
 
 Thanks goes to these wonderful people:
 
  <a href="https://github.com/hoodie/icalendar/graphs/contributors">
    <img src="https://contrib.rocks/image?repo=hoodie/icalendar" />
  </a>
+
+### License
+
+<sup>
+`icalendar` (this crate) is licensed under either of <a href="LICENSE-APACHE">Apache License, Version
+2.0</a> or <a href="LICENSE-MIT">MIT license</a> at your option.
+</sup>
+
+<br>
+
+<sub>
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this crate by you, as defined in the Apache-2.0 license, shall
+be dual licensed as above, without any additional terms or conditions.
+</sub>
