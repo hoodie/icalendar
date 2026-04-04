@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.10](https://github.com/hoodie/icalendar/compare/v0.17.9...v0.17.10) (2026-04-04)
+
+#### Fixes
+
+* update maintenance state and formatting in README
+([0066e43](https://github.com/hoodie/icalendar/commit/0066e432cc408a5a0eadcd7c37d079f93f56eba6))
+
 ### [v0.17.9](https://github.com/hoodie/icalendar/compare/v0.17.8...v0.17.9) (2026-04-03)
 
 #### Fixes
