@@ -704,3 +704,82 @@ mod test_exdate {
         }
     }
 }
+
+#[cfg(all(test, feature = "parser", feature = "recurrence"))]
+mod test_calendar_timezone {
+    use super::*;
+    use crate::{Calendar, EventLike};
+    use chrono::NaiveDate;
+
+    /// Reproduces <https://github.com/hoodie/icalendar/issues/175>.
+    ///
+    /// When a calendar carries `X-WR-TIMEZONE` and an event has a DATE-only `DTSTART`
+    /// (no `TZID` parameter), `get_recurrence_with_calendar_tz` must anchor midnight to
+    /// the calendar timezone – not to the system-local timezone.
+    ///
+    /// `America/New_York` is UTC-4 in April (EDT), so midnight NY = 04:00 UTC.
+    #[test]
+    fn all_day_event_uses_calendar_timezone_not_local() {
+        let ics = "BEGIN:VCALENDAR\r\n\
+X-WR-TIMEZONE:America/New_York\r\n\
+BEGIN:VEVENT\r\n\
+DTSTART;VALUE=DATE:20260401\r\n\
+DTEND;VALUE=DATE:20260402\r\n\
+RRULE:FREQ=DAILY;COUNT=3\r\n\
+SUMMARY:All Day Event\r\n\
+END:VEVENT\r\n\
+END:VCALENDAR";
+
+        let calendar = ics.parse::<Calendar>().unwrap();
+        let event = calendar.events().next().unwrap();
+        let calendar_tz: chrono_tz::Tz = calendar
+            .get_timezone()
+            .unwrap()
+            .parse()
+            .expect("X-WR-TIMEZONE should be a valid IANA timezone name");
+
+        let dates = event
+            .get_recurrence_with_calendar_tz(calendar_tz)
+            .unwrap()
+            .all(10)
+            .dates;
+
+        assert_eq!(dates.len(), 3);
+
+        // The occurrences must be tagged with the New York timezone.
+        for dt in &dates {
+            assert_eq!(
+                dt.timezone(),
+                Tz::America__New_York,
+                "occurrence must be in America/New_York, not system-local"
+            );
+        }
+
+        // Midnight New York on April 1/2/3 – naive local date must match the calendar date.
+        let expected_dates = [
+            NaiveDate::from_ymd_opt(2026, 4, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 4, 2).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 4, 3).unwrap(),
+        ];
+        for (dt, expected_date) in dates.iter().zip(expected_dates.iter()) {
+            assert_eq!(
+                dt.naive_local().date(),
+                *expected_date,
+                "naive local date must be {} in America/New_York",
+                expected_date
+            );
+        }
+
+        // Midnight NY (EDT = UTC-4) equals 04:00 UTC – verify the UTC representation.
+        use chrono::NaiveTime;
+        let expected_utc_time = NaiveTime::from_hms_opt(4, 0, 0).unwrap();
+        for dt in &dates {
+            assert_eq!(
+                dt.naive_utc().time(),
+                expected_utc_time,
+                "midnight NY must be 04:00 UTC in April, got {}",
+                dt.naive_utc().time()
+            );
+        }
+    }
+}
