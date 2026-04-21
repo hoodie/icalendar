@@ -49,7 +49,7 @@ mod recurrence;
 mod value_types;
 
 pub use crate::{
-    calendar::{Calendar, CalendarComponent},
+    calendar::{Calendar, CalendarComponent, CalendarEvent, CalendarTodo},
     components::{
         Component, Event, EventLike, Todo, Venue,
         alarm::{Alarm, Related, Trigger},

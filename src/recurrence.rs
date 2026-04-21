@@ -13,7 +13,7 @@ use rrule::Unvalidated;
 ///
 /// Use this type when storing or returning an [`RRule`] that has not yet been
 /// bound to a start date, for example in helper functions or struct fields.
-/// At the call site of [`EventLike::recurrence`] the type is always inferred,
+/// At the call site of [`EventLike::recurrence`](`crate::EventLike::recurrence`) the type is always inferred,
 /// so you only need to name it explicitly when the compiler asks you to.
 pub type UnvalidatedRRule = RRule<Unvalidated>;
 
@@ -701,6 +701,91 @@ mod test_exdate {
                 "excluded date {:?} must not appear in the occurrence list",
                 dt.naive_local()
             );
+        }
+    }
+}
+
+#[cfg(all(test, feature = "parser", feature = "recurrence"))]
+mod test_calendar_timezone {
+    use super::*;
+    use crate::{Calendar, Event, EventLike};
+    use chrono::NaiveDate;
+
+    fn parsed_calendar() -> Calendar {
+        let ics = "BEGIN:VCALENDAR\r\n\
+X-WR-TIMEZONE:America/New_York\r\n\
+BEGIN:VEVENT\r\n\
+DTSTART;VALUE=DATE:20260401\r\n\
+DTEND;VALUE=DATE:20260402\r\n\
+RRULE:FREQ=DAILY;COUNT=3\r\n\
+SUMMARY:All Day Event\r\n\
+END:VEVENT\r\n\
+END:VCALENDAR";
+        ics.parse::<Calendar>().unwrap()
+    }
+
+    fn programmatic_calendar() -> Calendar {
+        let event = Event::new()
+            .all_day(NaiveDate::from_ymd_opt(2026, 4, 1).unwrap())
+            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
+            .unwrap()
+            .done();
+        let mut calendar = Calendar::new();
+        calendar.timezone(chrono_tz::America::New_York);
+        calendar.push(event);
+        calendar
+    }
+
+    /// Reproduces <https://github.com/hoodie/icalendar/issues/175>.
+    #[test]
+    fn all_day_event_uses_calendar_timezone_not_local() {
+        let cases: Vec<(&str, Calendar)> = vec![
+            ("parsed from ICS", parsed_calendar()),
+            ("programmatic", programmatic_calendar()),
+        ];
+
+        let expected_dates = [
+            NaiveDate::from_ymd_opt(2026, 4, 1).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 4, 2).unwrap(),
+            NaiveDate::from_ymd_opt(2026, 4, 3).unwrap(),
+        ];
+        let expected_utc_time = chrono::NaiveTime::from_hms_opt(4, 0, 0).unwrap();
+
+        for (name, calendar) in &cases {
+            let cal_event = calendar
+                .calendar_events()
+                .next()
+                .expect("should have an event");
+
+            let dates = cal_event.get_recurrence().unwrap().all(10).dates;
+
+            assert_eq!(dates.len(), 3, "[{name}] expected 3 occurrences");
+
+            for dt in &dates {
+                assert_eq!(
+                    dt.timezone(),
+                    Tz::America__New_York,
+                    "[{name}] occurrence must be in America/New_York, not system-local"
+                );
+            }
+
+            for (dt, expected_date) in dates.iter().zip(expected_dates.iter()) {
+                assert_eq!(
+                    dt.naive_local().date(),
+                    *expected_date,
+                    "[{name}] naive local date must be {expected_date}"
+                );
+            }
+
+            // Midnight NY (EDT = UTC-4) equals 04:00 UTC.
+            for dt in &dates {
+                assert_eq!(
+                    dt.naive_utc().time(),
+                    expected_utc_time,
+                    "[{name}] midnight NY must be 04:00 UTC in April, got {}",
+                    dt.naive_utc().time()
+                );
+            }
         }
     }
 }

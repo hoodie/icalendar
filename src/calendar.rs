@@ -1,6 +1,8 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
+#[cfg(feature = "recurrence")]
+use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
 
 mod calendar_component;
@@ -93,7 +95,7 @@ where
     where
         T: IntoIterator<Item = U>,
     {
-        self.extend(other.into_iter().map(Into::into));
+        Calendar::extend(self, other);
     }
 }
 
@@ -158,8 +160,12 @@ impl Calendar {
         self
     }
 
-    /// Set the `NAME` and `X-WR-CALNAME` `Property`s
-    // TODO: where is `NAME` specified? it's not in rfc5545 or rfc2445
+    /// Set the [`NAME`](https://datatracker.ietf.org/doc/html/rfc7986#section-5.1) and `X-WR-CALNAME` `Property`s
+    ///
+    /// `NAME` is defined in [RFC 7986](https://datatracker.ietf.org/doc/html/rfc7986), which extends
+    /// [RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) with new calendar-level properties.
+    /// `X-WR-CALNAME` is a non-standard extension introduced by Apple iCal and widely supported
+    /// by calendar clients for interoperability.
     pub fn name(&mut self, name: &str) -> &mut Self {
         self.append_property(Property::new("NAME", name));
         self.append_property(Property::new("X-WR-CALNAME", name));
@@ -186,10 +192,23 @@ impl Calendar {
     }
 
     /// Set the `TIMEZONE-ID` and `X-WR-TIMEZONE` `Property`s
-    // TODO: where is `TIMEZONE-ID` specified? it's not in rfc5545 or rfc2445
-    pub fn timezone(&mut self, timezone: &str) -> &mut Self {
-        self.append_property(Property::new("TIMEZONE-ID", timezone));
-        self.append_property(Property::new("X-WR-TIMEZONE", timezone));
+    ///
+    /// `X-WR-TIMEZONE` is a non-standard extension introduced by Apple iCal.
+    /// to indicate the default timezone for the calendar as a whole (using an IANA timezone name).
+    ///
+    /// Requires the `chrono-tz` feature. Accepts a [`chrono_tz::Tz`] value, which is
+    /// guaranteed to be a valid IANA timezone name at compile time.
+    ///
+    /// ```
+    /// # use icalendar::Calendar;
+    /// let cal = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
+    /// assert_eq!(cal.get_timezone(), Some("Europe/Berlin"));
+    /// ```
+    #[cfg(feature = "chrono-tz")]
+    pub fn timezone(&mut self, timezone: chrono_tz::Tz) -> &mut Self {
+        let id = timezone.name();
+        self.append_property(Property::new("TIMEZONE-ID", id));
+        self.append_property(Property::new("X-WR-TIMEZONE", id));
         self
     }
 
@@ -293,6 +312,106 @@ impl Calendar {
                 CalendarComponent::Todo(todo) => Some(todo),
                 _ => None,
             })
+    }
+
+    /// Returns an iterator of [`CalendarEvent`] views that carry the calendar-level timezone.
+    ///
+    /// Use this instead of [`events()`](Calendar::events) when you need timezone-aware
+    /// recurrence via [`CalendarEvent::get_recurrence`].
+    pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
+        let tz = self.get_timezone();
+        self.events().map(move |event| CalendarEvent {
+            event,
+            calendar_tz: tz,
+        })
+    }
+
+    /// Returns an iterator of [`CalendarTodo`] views that carry the calendar-level timezone.
+    ///
+    /// Use this instead of [`todos()`](Calendar::todos) when you need timezone-aware
+    /// recurrence via [`CalendarTodo::get_recurrence`].
+    pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
+        let tz = self.get_timezone();
+        self.todos().map(move |todo| CalendarTodo {
+            todo,
+            calendar_tz: tz,
+        })
+    }
+}
+
+/// A borrowed view of an [`Event`] together with its parent [`Calendar`]'s timezone.
+///
+/// Obtained via [`Calendar::calendar_events`]. This type gives you timezone-aware
+/// access to recurrence data without the event needing to store a copy of the
+/// calendar timezone.
+#[derive(Debug, Clone, Copy)]
+pub struct CalendarEvent<'a> {
+    event: &'a Event,
+    calendar_tz: Option<&'a str>,
+}
+
+impl<'a> CalendarEvent<'a> {
+    /// Returns the underlying [`Event`] reference.
+    pub fn event(&self) -> &'a Event {
+        self.event
+    }
+
+    /// Returns the calendar-level timezone, if set.
+    pub fn calendar_tz(&self) -> Option<&str> {
+        self.calendar_tz
+    }
+
+    /// Get recurrence rules, anchoring DATE-only values to the calendar's timezone.
+    ///
+    /// This is the timezone-aware equivalent of [`EventLike::get_recurrence`].
+    #[cfg(feature = "recurrence")]
+    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
+        build_recurrence_set(self.event, self.calendar_tz)
+    }
+}
+
+impl<'a> Deref for CalendarEvent<'a> {
+    type Target = Event;
+    fn deref(&self) -> &Event {
+        self.event
+    }
+}
+
+/// A borrowed view of a [`Todo`] together with its parent [`Calendar`]'s timezone.
+///
+/// Obtained via [`Calendar::calendar_todos`]. This type gives you timezone-aware
+/// access to recurrence data without the todo needing to store a copy of the
+/// calendar timezone.
+#[derive(Debug, Clone, Copy)]
+pub struct CalendarTodo<'a> {
+    todo: &'a Todo,
+    calendar_tz: Option<&'a str>,
+}
+
+impl<'a> CalendarTodo<'a> {
+    /// Returns the underlying [`Todo`] reference.
+    pub fn todo(&self) -> &'a Todo {
+        self.todo
+    }
+
+    /// Returns the calendar-level timezone, if set.
+    pub fn calendar_tz(&self) -> Option<&str> {
+        self.calendar_tz
+    }
+
+    /// Get recurrence rules, anchoring DATE-only values to the calendar's timezone.
+    ///
+    /// This is the timezone-aware equivalent of [`EventLike::get_recurrence`].
+    #[cfg(feature = "recurrence")]
+    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
+        build_recurrence_set(self.todo, self.calendar_tz)
+    }
+}
+
+impl<'a> Deref for CalendarTodo<'a> {
+    type Target = Todo;
+    fn deref(&self) -> &Todo {
+        self.todo
     }
 }
 
@@ -400,11 +519,17 @@ mod tests {
         let calendar = Calendar::new()
             .name("name")
             .description("description")
-            .timezone("timezone")
             .done();
         assert_eq!(calendar.get_name(), Some("name"));
         assert_eq!(calendar.get_description(), Some("description"));
-        assert_eq!(calendar.get_timezone(), Some("timezone"));
+        assert_eq!(calendar.get_timezone(), None);
+    }
+
+    #[test]
+    #[cfg(feature = "chrono-tz")]
+    fn timezone_accepts_chrono_tz() {
+        let calendar = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
     }
 
     #[test]

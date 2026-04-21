@@ -476,7 +476,7 @@ END:VEVENT
         InnerComponent {
             properties: Default::default(),
             multi_properties,
-            components: vec![]
+            components: vec![],
         }
     );
 }
