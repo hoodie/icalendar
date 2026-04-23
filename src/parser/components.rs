@@ -143,6 +143,7 @@ impl From<Component<'_>> for InnerComponent {
                 .collect(),
             components: component.components.into_iter().map(Other::from).collect(),
             multi_properties: Default::default(),
+            calendar_tz: None,
         };
 
         for p in component
@@ -476,7 +477,8 @@ END:VEVENT
         InnerComponent {
             properties: Default::default(),
             multi_properties,
-            components: vec![]
+            components: vec![],
+            calendar_tz: None,
         }
     );
 }

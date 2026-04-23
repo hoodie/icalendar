@@ -58,6 +58,15 @@ impl Component for Other {
         self.inner.multi_properties.remove(key);
         self
     }
+
+    fn calendar_tz(&self) -> Option<&str> {
+        self.inner.calendar_tz.as_deref()
+    }
+
+    fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self {
+        self.inner.calendar_tz = tz;
+        self
+    }
 }
 
 impl From<(String, InnerComponent)> for Other {

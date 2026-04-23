@@ -105,6 +105,25 @@ impl From<&mut Other> for CalendarComponent {
 }
 
 impl CalendarComponent {
+    /// Propagates the calendar-level timezone to the inner component.
+    // TODO: move this into a private trait
+    pub(crate) fn set_calendar_tz(&mut self, tz: Option<String>) {
+        match self {
+            CalendarComponent::Event(e) => {
+                e.set_calendar_tz(tz);
+            }
+            CalendarComponent::Todo(t) => {
+                t.set_calendar_tz(tz);
+            }
+            CalendarComponent::Venue(v) => {
+                v.set_calendar_tz(tz);
+            }
+            CalendarComponent::Other(o) => {
+                o.set_calendar_tz(tz);
+            }
+        }
+    }
+
     pub(crate) fn fmt_write<W: fmt::Write>(&self, out: &mut W) -> Result<(), fmt::Error> {
         match *self {
             CalendarComponent::Todo(ref todo) => todo.fmt_write(out),

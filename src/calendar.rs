@@ -1,6 +1,8 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
+
+
 use crate::{Parameter, Property, components::*};
 
 mod calendar_component;
@@ -93,7 +95,7 @@ where
     where
         T: IntoIterator<Item = U>,
     {
-        self.extend(other.into_iter().map(Into::into));
+        Calendar::extend(self, other);
     }
 }
 
@@ -125,6 +127,13 @@ impl Calendar {
     /// Moves all the elements of other into Self, leaving other empty.
     pub fn append(&mut self, other: &mut Calendar) {
         self.components.append(&mut other.components);
+        // TODO: this is a pretty invasive addition, lets think about this one more time
+        if let Some(tz) = self.get_timezone() {
+            let tz = tz.to_owned();
+            for component in &mut self.components {
+                component.set_calendar_tz(Some(tz.clone()));
+            }
+        }
     }
 
     /// Append a given `Property` to the `Calendar`
@@ -149,12 +158,23 @@ impl Calendar {
         T: IntoIterator<Item = U>,
         U: Into<CalendarComponent>,
     {
-        self.components.extend(other.into_iter().map(Into::into));
+        let tz = self.get_timezone().map(ToOwned::to_owned);
+        self.components.extend(other.into_iter().map(|item| {
+            let mut comp: CalendarComponent = item.into();
+            if let Some(ref tz) = tz {
+                comp.set_calendar_tz(Some(tz.clone()));
+            }
+            comp
+        }));
     }
 
     /// Appends an element to the back of the `Calendar`.
     pub fn push<T: Into<CalendarComponent>>(&mut self, component: T) -> &mut Self {
-        self.components.push(component.into());
+        let mut comp = component.into();
+        if let Some(tz) = self.get_timezone() {
+            comp.set_calendar_tz(Some(tz.to_owned()));
+        }
+        self.components.push(comp);
         self
     }
 
@@ -186,10 +206,25 @@ impl Calendar {
     }
 
     /// Set the `TIMEZONE-ID` and `X-WR-TIMEZONE` `Property`s
+    ///
+    /// Requires the `chrono-tz` feature. Accepts a [`chrono_tz::Tz`] value, which is
+    /// guaranteed to be a valid IANA timezone name at compile time.
+    ///
+    /// ```
+    /// # use icalendar::Calendar;
+    /// let cal = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
+    /// assert_eq!(cal.get_timezone(), Some("Europe/Berlin"));
+    /// ```
     // TODO: where is `TIMEZONE-ID` specified? it's not in rfc5545 or rfc2445
-    pub fn timezone(&mut self, timezone: &str) -> &mut Self {
-        self.append_property(Property::new("TIMEZONE-ID", timezone));
-        self.append_property(Property::new("X-WR-TIMEZONE", timezone));
+    #[cfg(feature = "chrono-tz")]
+    pub fn timezone(&mut self, timezone: chrono_tz::Tz) -> &mut Self {
+        let id = timezone.name();
+        self.append_property(Property::new("TIMEZONE-ID", id));
+        self.append_property(Property::new("X-WR-TIMEZONE", id));
+        let tz = id.to_owned();
+        for component in &mut self.components {
+            component.set_calendar_tz(Some(tz.clone()));
+        }
         self
     }
 
@@ -229,10 +264,17 @@ impl Calendar {
     /// End of builder pattern.
     /// copies over everything
     pub fn done(&mut self) -> Self {
-        Calendar {
+        let mut cal = Calendar {
             properties: mem::take(&mut self.properties),
             components: mem::take(&mut self.components),
+        };
+        if let Some(tz) = cal.get_timezone() {
+            let tz = tz.to_owned();
+            for component in &mut cal.components {
+                component.set_calendar_tz(Some(tz.clone()));
+            }
         }
+        cal
     }
 
     /// Writes `Calendar` into a `Writer` using `std::fmt`.
@@ -400,11 +442,17 @@ mod tests {
         let calendar = Calendar::new()
             .name("name")
             .description("description")
-            .timezone("timezone")
             .done();
         assert_eq!(calendar.get_name(), Some("name"));
         assert_eq!(calendar.get_description(), Some("description"));
-        assert_eq!(calendar.get_timezone(), Some("timezone"));
+        assert_eq!(calendar.get_timezone(), None);
+    }
+
+    #[test]
+    #[cfg(feature = "chrono-tz")]
+    fn timezone_accepts_chrono_tz() {
+        let calendar = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
     }
 
     #[test]

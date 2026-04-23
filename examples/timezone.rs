@@ -6,6 +6,7 @@ use icalendar::*;
 fn main() {
     // lets make sure everybody arrives at the expected time
     let my_calendar = Calendar::new()
+        .timezone(Berlin)
         .push(
             Event::new()
                 .starts(CalendarDateTime::from_ymd_hm_tzid(2023, 3, 15, 18, 45, Berlin).unwrap())

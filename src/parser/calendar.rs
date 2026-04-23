@@ -42,10 +42,26 @@ impl fmt::Display for Calendar<'_> {
 
 impl From<Calendar<'_>> for crate::Calendar {
     fn from(parsed: Calendar) -> Self {
-        Self {
+        // Extract the calendar-level timezone before we move properties.
+        let calendar_tz: Option<String> = parsed
+            .properties
+            .iter()
+            .find(|p| p.name == "TIMEZONE-ID" || p.name == "X-WR-TIMEZONE")
+            .map(|p| p.val.to_string());
+
+        let mut cal = Self {
             components: parsed.components.into_iter().map(Into::into).collect(),
             properties: parsed.properties.into_iter().map(Into::into).collect(),
+        };
+
+        // Propagate the calendar timezone to every component.
+        if calendar_tz.is_some() {
+            for component in &mut cal.components {
+                component.set_calendar_tz(calendar_tz.clone());
+            }
         }
+
+        cal
     }
 }
 
