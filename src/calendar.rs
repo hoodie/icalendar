@@ -176,8 +176,12 @@ impl Calendar {
         self
     }
 
-    /// Set the `NAME` and `X-WR-CALNAME` `Property`s
-    // TODO: where is `NAME` specified? it's not in rfc5545 or rfc2445
+    /// Set the [`NAME`](https://datatracker.ietf.org/doc/html/rfc7986#section-5.1) and `X-WR-CALNAME` `Property`s
+    ///
+    /// `NAME` is defined in [RFC 7986](https://datatracker.ietf.org/doc/html/rfc7986), which extends
+    /// [RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) with new calendar-level properties.
+    /// `X-WR-CALNAME` is a non-standard extension introduced by Apple iCal and widely supported
+    /// by calendar clients for interoperability.
     pub fn name(&mut self, name: &str) -> &mut Self {
         self.append_property(Property::new("NAME", name));
         self.append_property(Property::new("X-WR-CALNAME", name));
@@ -205,6 +209,9 @@ impl Calendar {
 
     /// Set the `TIMEZONE-ID` and `X-WR-TIMEZONE` `Property`s
     ///
+    /// `X-WR-TIMEZONE` is a non-standard extension introduced by Apple iCal.
+    /// to indicate the default timezone for the calendar as a whole (using an IANA timezone name).
+    ///
     /// Requires the `chrono-tz` feature. Accepts a [`chrono_tz::Tz`] value, which is
     /// guaranteed to be a valid IANA timezone name at compile time.
     ///
@@ -213,7 +220,6 @@ impl Calendar {
     /// let cal = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
     /// assert_eq!(cal.get_timezone(), Some("Europe/Berlin"));
     /// ```
-    // TODO: where is `TIMEZONE-ID` specified? it's not in rfc5545 or rfc2445
     #[cfg(feature = "chrono-tz")]
     pub fn timezone(&mut self, timezone: chrono_tz::Tz) -> &mut Self {
         let id = timezone.name();
