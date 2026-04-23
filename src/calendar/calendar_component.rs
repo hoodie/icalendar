@@ -1,4 +1,4 @@
-use crate::{Component, components::SetCalendarTz};
+use crate::Component;
 
 use super::{Event, Other, Todo, Venue};
 use std::fmt;
@@ -101,26 +101,6 @@ impl From<&Other> for CalendarComponent {
 impl From<&mut Other> for CalendarComponent {
     fn from(val: &mut Other) -> Self {
         CalendarComponent::Other(val.to_owned())
-    }
-}
-
-impl SetCalendarTz for CalendarComponent {
-    fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self {
-        match self {
-            CalendarComponent::Event(e) => {
-                e.set_calendar_tz(tz);
-            }
-            CalendarComponent::Todo(t) => {
-                t.set_calendar_tz(tz);
-            }
-            CalendarComponent::Venue(v) => {
-                v.set_calendar_tz(tz);
-            }
-            CalendarComponent::Other(o) => {
-                o.set_calendar_tz(tz);
-            }
-        }
-        self
     }
 }
 

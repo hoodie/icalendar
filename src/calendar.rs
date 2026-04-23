@@ -1,6 +1,8 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
+#[cfg(feature = "recurrence")]
+use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
 
 mod calendar_component;
@@ -125,13 +127,6 @@ impl Calendar {
     /// Moves all the elements of other into Self, leaving other empty.
     pub fn append(&mut self, other: &mut Calendar) {
         self.components.append(&mut other.components);
-        // TODO: this is a pretty invasive addition, lets think about this one more time
-        if let Some(tz) = self.get_timezone() {
-            let tz = tz.to_owned();
-            for component in &mut self.components {
-                component.set_calendar_tz(Some(tz.clone()));
-            }
-        }
     }
 
     /// Append a given `Property` to the `Calendar`
@@ -156,23 +151,12 @@ impl Calendar {
         T: IntoIterator<Item = U>,
         U: Into<CalendarComponent>,
     {
-        let tz = self.get_timezone().map(ToOwned::to_owned);
-        self.components.extend(other.into_iter().map(|item| {
-            let mut comp: CalendarComponent = item.into();
-            if let Some(ref tz) = tz {
-                comp.set_calendar_tz(Some(tz.clone()));
-            }
-            comp
-        }));
+        self.components.extend(other.into_iter().map(Into::into));
     }
 
     /// Appends an element to the back of the `Calendar`.
     pub fn push<T: Into<CalendarComponent>>(&mut self, component: T) -> &mut Self {
-        let mut comp = component.into();
-        if let Some(tz) = self.get_timezone() {
-            comp.set_calendar_tz(Some(tz.to_owned()));
-        }
-        self.components.push(comp);
+        self.components.push(component.into());
         self
     }
 
@@ -225,10 +209,6 @@ impl Calendar {
         let id = timezone.name();
         self.append_property(Property::new("TIMEZONE-ID", id));
         self.append_property(Property::new("X-WR-TIMEZONE", id));
-        let tz = id.to_owned();
-        for component in &mut self.components {
-            component.set_calendar_tz(Some(tz.clone()));
-        }
         self
     }
 
@@ -268,17 +248,10 @@ impl Calendar {
     /// End of builder pattern.
     /// copies over everything
     pub fn done(&mut self) -> Self {
-        let mut cal = Calendar {
+        Calendar {
             properties: mem::take(&mut self.properties),
             components: mem::take(&mut self.components),
-        };
-        if let Some(tz) = cal.get_timezone() {
-            let tz = tz.to_owned();
-            for component in &mut cal.components {
-                component.set_calendar_tz(Some(tz.clone()));
-            }
         }
-        cal
     }
 
     /// Writes `Calendar` into a `Writer` using `std::fmt`.
@@ -339,6 +312,106 @@ impl Calendar {
                 CalendarComponent::Todo(todo) => Some(todo),
                 _ => None,
             })
+    }
+
+    /// Returns an iterator of [`CalendarEvent`] views that carry the calendar-level timezone.
+    ///
+    /// Use this instead of [`events()`](Calendar::events) when you need timezone-aware
+    /// recurrence via [`CalendarEvent::get_recurrence`].
+    pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
+        let tz = self.get_timezone();
+        self.events().map(move |event| CalendarEvent {
+            event,
+            calendar_tz: tz,
+        })
+    }
+
+    /// Returns an iterator of [`CalendarTodo`] views that carry the calendar-level timezone.
+    ///
+    /// Use this instead of [`todos()`](Calendar::todos) when you need timezone-aware
+    /// recurrence via [`CalendarTodo::get_recurrence`].
+    pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
+        let tz = self.get_timezone();
+        self.todos().map(move |todo| CalendarTodo {
+            todo,
+            calendar_tz: tz,
+        })
+    }
+}
+
+/// A borrowed view of an [`Event`] together with its parent [`Calendar`]'s timezone.
+///
+/// Obtained via [`Calendar::calendar_events`]. This type gives you timezone-aware
+/// access to recurrence data without the event needing to store a copy of the
+/// calendar timezone.
+#[derive(Debug, Clone, Copy)]
+pub struct CalendarEvent<'a> {
+    event: &'a Event,
+    calendar_tz: Option<&'a str>,
+}
+
+impl<'a> CalendarEvent<'a> {
+    /// Returns the underlying [`Event`] reference.
+    pub fn event(&self) -> &'a Event {
+        self.event
+    }
+
+    /// Returns the calendar-level timezone, if set.
+    pub fn calendar_tz(&self) -> Option<&str> {
+        self.calendar_tz
+    }
+
+    /// Get recurrence rules, anchoring DATE-only values to the calendar's timezone.
+    ///
+    /// This is the timezone-aware equivalent of [`EventLike::get_recurrence`].
+    #[cfg(feature = "recurrence")]
+    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
+        build_recurrence_set(self.event, self.calendar_tz)
+    }
+}
+
+impl<'a> Deref for CalendarEvent<'a> {
+    type Target = Event;
+    fn deref(&self) -> &Event {
+        self.event
+    }
+}
+
+/// A borrowed view of a [`Todo`] together with its parent [`Calendar`]'s timezone.
+///
+/// Obtained via [`Calendar::calendar_todos`]. This type gives you timezone-aware
+/// access to recurrence data without the todo needing to store a copy of the
+/// calendar timezone.
+#[derive(Debug, Clone, Copy)]
+pub struct CalendarTodo<'a> {
+    todo: &'a Todo,
+    calendar_tz: Option<&'a str>,
+}
+
+impl<'a> CalendarTodo<'a> {
+    /// Returns the underlying [`Todo`] reference.
+    pub fn todo(&self) -> &'a Todo {
+        self.todo
+    }
+
+    /// Returns the calendar-level timezone, if set.
+    pub fn calendar_tz(&self) -> Option<&str> {
+        self.calendar_tz
+    }
+
+    /// Get recurrence rules, anchoring DATE-only values to the calendar's timezone.
+    ///
+    /// This is the timezone-aware equivalent of [`EventLike::get_recurrence`].
+    #[cfg(feature = "recurrence")]
+    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
+        build_recurrence_set(self.todo, self.calendar_tz)
+    }
+}
+
+impl<'a> Deref for CalendarTodo<'a> {
+    type Target = Todo;
+    fn deref(&self) -> &Todo {
+        self.todo
     }
 }
 

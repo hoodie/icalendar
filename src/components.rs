@@ -27,7 +27,6 @@ pub(crate) struct InnerComponent {
     pub properties: BTreeMap<String, Property>,
     pub multi_properties: BTreeMap<String, Vec<Property>>,
     pub components: Vec<Other>,
-    pub calendar_tz: Option<String>,
 }
 
 impl From<Other> for InnerComponent {
@@ -50,7 +49,6 @@ impl InnerComponent {
             properties: mem::take(&mut self.properties),
             multi_properties: mem::take(&mut self.multi_properties),
             components: mem::take(&mut self.components),
-            calendar_tz: self.calendar_tz.take(),
         }
     }
 
@@ -373,18 +371,6 @@ pub trait Component {
     fn get_created(&self) -> Option<DateTime<Utc>> {
         parse_utc_date_time(self.property_value("CREATED")?)
     }
-
-    /// Gets the calendar-level timezone (from `X-WR-TIMEZONE` or `TIMEZONE-ID`)
-    /// that was propagated when this component was parsed from or added to a [`Calendar`](`crate::Calendar`).
-    fn calendar_tz(&self) -> Option<&str>;
-}
-
-/// Internal trait for propagating a calendar-level timezone down to a component.
-///
-/// Kept `pub(crate)` because this is an implementation detail of how [`Calendar`](crate::Calendar)
-/// stamps its timezone onto components — it is not part of the public API.
-pub(crate) trait SetCalendarTz {
-    fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self;
 }
 
 /// Common trait of [`Event`] and [`Todo`]
@@ -525,73 +511,7 @@ pub trait EventLike: Component {
     /// RFC 5545 §3.6.1.
     #[cfg(feature = "recurrence")]
     fn get_recurrence(&self) -> Result<rrule::RRuleSet, RecurrenceError> {
-        use std::fmt::Write;
-
-        let calendar_tz = self.calendar_tz();
-        let mut b = String::new();
-
-        if let Some(dt_start_prop) = self.properties().get("DTSTART") {
-            let parsed = DatePerhapsTime::from_property(dt_start_prop);
-
-            // Write DTSTART, anchoring a DATE-only value to the calendar timezone when available.
-            if let Some(tzid) = dt_start_prop.params().get("TZID") {
-                // DTSTART already carries an explicit TZID – honour it.
-                writeln!(b, "DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
-            } else if let (Some(DatePerhapsTime::Date(naive_date)), Some(tz_name)) =
-                (&parsed, calendar_tz)
-            {
-                // DATE-only DTSTART with no timezone: anchor midnight to the calendar timezone.
-                writeln!(
-                    b,
-                    "DTSTART;TZID={}:{}T000000",
-                    tz_name,
-                    naive_date.format("%Y%m%d")
-                )
-                .unwrap();
-            } else {
-                // UTC, floating datetime, or DATE-only without calendar tz – use as-is.
-                writeln!(b, "DTSTART:{}", dt_start_prop.value()).unwrap();
-            }
-
-            // When there is no RRULE the rrule crate's iterator only yields explicit RDATEs.
-            // RFC 5545 §3.6.1 says DTSTART is the first instance, so we add it as an RDATE.
-            let has_rrule = self.property_value("RRULE").is_some();
-            if !has_rrule {
-                if let Some(tzid) = dt_start_prop.params().get("TZID") {
-                    writeln!(b, "RDATE;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
-                } else if let (Some(DatePerhapsTime::Date(naive_date)), Some(tz_name)) =
-                    (&parsed, calendar_tz)
-                {
-                    writeln!(
-                        b,
-                        "RDATE;TZID={}:{}T000000",
-                        tz_name,
-                        naive_date.format("%Y%m%d")
-                    )
-                    .unwrap();
-                } else {
-                    writeln!(b, "RDATE:{}", dt_start_prop.value()).unwrap();
-                }
-            }
-        };
-
-        if let Some(rrule_str) = self.property_value("RRULE") {
-            writeln!(b, "RRULE:{rrule_str}").unwrap();
-        }
-
-        if let Some(rdates) = self.multi_properties().get("RDATE") {
-            for rdate in rdates.iter().filter_map(|p| p.to_line().ok()) {
-                writeln!(b, "{rdate}").unwrap();
-            }
-        }
-
-        if let Some(exdates) = self.multi_properties().get("EXDATE") {
-            for exdate in exdates.iter().filter_map(|p| p.to_line().ok()) {
-                writeln!(b, "{exdate}").unwrap();
-            }
-        }
-
-        b.parse::<rrule::RRuleSet>().map_err(RecurrenceError::Rule)
+        build_recurrence_set(self, None)
     }
 
     /// Add an RDATE to this component
@@ -614,6 +534,82 @@ pub trait EventLike: Component {
         let alarm: Alarm = alarm.into();
         self.append_component(alarm)
     }
+}
+
+/// Builds an [`rrule::RRuleSet`] from a component's `DTSTART`, `RRULE`, `RDATE`,
+/// and `EXDATE` properties, optionally anchoring DATE-only values to the given
+/// calendar-level timezone.
+///
+/// This is the shared implementation behind [`EventLike::get_recurrence`] and the
+/// timezone-aware [`CalendarEvent::get_recurrence`](crate::CalendarEvent::get_recurrence).
+#[cfg(feature = "recurrence")]
+pub(crate) fn build_recurrence_set(
+    component: &(impl Component + ?Sized),
+    calendar_tz: Option<&str>,
+) -> Result<rrule::RRuleSet, RecurrenceError> {
+    use std::fmt::Write;
+
+    let mut b = String::new();
+
+    if let Some(dt_start_prop) = component.properties().get("DTSTART") {
+        let parsed = DatePerhapsTime::from_property(dt_start_prop);
+
+        // Write DTSTART, anchoring a DATE-only value to the calendar timezone when available.
+        if let Some(tzid) = dt_start_prop.params().get("TZID") {
+            writeln!(b, "DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
+        } else if let (Some(DatePerhapsTime::Date(naive_date)), Some(tz_name)) =
+            (&parsed, calendar_tz)
+        {
+            writeln!(
+                b,
+                "DTSTART;TZID={}:{}T000000",
+                tz_name,
+                naive_date.format("%Y%m%d")
+            )
+            .unwrap();
+        } else {
+            writeln!(b, "DTSTART:{}", dt_start_prop.value()).unwrap();
+        }
+
+        // When there is no RRULE the rrule crate's iterator only yields explicit RDATEs.
+        // RFC 5545 §3.6.1 says DTSTART is the first instance, so we add it as an RDATE.
+        let has_rrule = component.property_value("RRULE").is_some();
+        if !has_rrule {
+            if let Some(tzid) = dt_start_prop.params().get("TZID") {
+                writeln!(b, "RDATE;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
+            } else if let (Some(DatePerhapsTime::Date(naive_date)), Some(tz_name)) =
+                (&parsed, calendar_tz)
+            {
+                writeln!(
+                    b,
+                    "RDATE;TZID={}:{}T000000",
+                    tz_name,
+                    naive_date.format("%Y%m%d")
+                )
+                .unwrap();
+            } else {
+                writeln!(b, "RDATE:{}", dt_start_prop.value()).unwrap();
+            }
+        }
+    };
+
+    if let Some(rrule_str) = component.property_value("RRULE") {
+        writeln!(b, "RRULE:{rrule_str}").unwrap();
+    }
+
+    if let Some(rdates) = component.multi_properties().get("RDATE") {
+        for rdate in rdates.iter().filter_map(|p| p.to_line().ok()) {
+            writeln!(b, "{rdate}").unwrap();
+        }
+    }
+
+    if let Some(exdates) = component.multi_properties().get("EXDATE") {
+        for exdate in exdates.iter().filter_map(|p| p.to_line().ok()) {
+            writeln!(b, "{exdate}").unwrap();
+        }
+    }
+
+    b.parse::<rrule::RRuleSet>().map_err(RecurrenceError::Rule)
 }
 
 macro_rules! event_impl {
@@ -677,17 +673,6 @@ macro_rules! component_impl {
             /// Removes a multi-property by its key if it exists
             fn remove_multi_property(&mut self, key: &str) -> &mut Self {
                 self.inner.multi_properties.remove(key);
-                self
-            }
-
-            fn calendar_tz(&self) -> Option<&str> {
-                self.inner.calendar_tz.as_deref()
-            }
-        }
-
-        impl SetCalendarTz for $t {
-            fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self {
-                self.inner.calendar_tz = tz;
                 self
             }
         }

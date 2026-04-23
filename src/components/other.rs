@@ -1,4 +1,4 @@
-use super::{SetCalendarTz, *};
+use super::*;
 
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct Other {
@@ -56,17 +56,6 @@ impl Component for Other {
 
     fn remove_multi_property(&mut self, key: &str) -> &mut Self {
         self.inner.multi_properties.remove(key);
-        self
-    }
-
-    fn calendar_tz(&self) -> Option<&str> {
-        self.inner.calendar_tz.as_deref()
-    }
-}
-
-impl SetCalendarTz for Other {
-    fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self {
-        self.inner.calendar_tz = tz;
         self
     }
 }
