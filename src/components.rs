@@ -377,8 +377,13 @@ pub trait Component {
     /// Gets the calendar-level timezone (from `X-WR-TIMEZONE` or `TIMEZONE-ID`)
     /// that was propagated when this component was parsed from or added to a [`Calendar`](`crate::Calendar`).
     fn calendar_tz(&self) -> Option<&str>;
+}
 
-    /// Sets the calendar-level timezone on this component.
+/// Internal trait for propagating a calendar-level timezone down to a component.
+///
+/// Kept `pub(crate)` because this is an implementation detail of how [`Calendar`](crate::Calendar)
+/// stamps its timezone onto components — it is not part of the public API.
+pub(crate) trait SetCalendarTz {
     fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self;
 }
 
@@ -678,7 +683,9 @@ macro_rules! component_impl {
             fn calendar_tz(&self) -> Option<&str> {
                 self.inner.calendar_tz.as_deref()
             }
+        }
 
+        impl SetCalendarTz for $t {
             fn set_calendar_tz(&mut self, tz: Option<String>) -> &mut Self {
                 self.inner.calendar_tz = tz;
                 self

@@ -1,8 +1,6 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
-
-
 use crate::{Parameter, Property, components::*};
 
 mod calendar_component;
