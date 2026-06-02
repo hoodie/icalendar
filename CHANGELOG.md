@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.11](https://github.com/hoodie/icalendar/compare/v0.17.10...v0.17.11) (2026-06-03)
+
+#### Fixes
+
+* treat non-standard properties as text
+([4905029](https://github.com/hoodie/icalendar/commit/4905029cece8a3bfd212e96f91486f4d8f6221a5))
+
 ### [v0.17.10](https://github.com/hoodie/icalendar/compare/v0.17.9...v0.17.10) (2026-04-04)
 
 #### Fixes
