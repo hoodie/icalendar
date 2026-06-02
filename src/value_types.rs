@@ -93,8 +93,8 @@ impl ValueType {
             "SEQUENCE" => Some(Integer),         // 3.8.7.4
             // 3.8.8.1
             // "An IANA-registered property name" => Any parameter can be specified on this property.
-            // "X-"/* ... */ => Some(Text),       // any type 3.8.8.2
-            "REQUEST-STATUS" => Some(Text), // 3.8.8.3
+            n if n.starts_with("X-") => Some(Text), // any type 3.8.8.2
+            "REQUEST-STATUS" => Some(Text),         // 3.8.8.3
             _ => None,
         }
     }
