@@ -384,6 +384,12 @@ impl Calendar {
 /// Obtained via [`Calendar::calendar_events`]. This type gives you timezone-aware
 /// access to recurrence data without the event needing to store a copy of the
 /// calendar timezone.
+///
+/// ## Serialisation
+///
+/// `CalendarEvent` does not implement `Serialize` or `Deserialize`. It is a borrowed
+/// view type and cannot be serialised independently. To serialise the underlying
+/// event, use [`.event()`](CalendarEvent::event) and serialise that directly.
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarEvent<'a> {
     event: &'a Event,
@@ -422,6 +428,12 @@ impl<'a> Deref for CalendarEvent<'a> {
 /// Obtained via [`Calendar::calendar_todos`]. This type gives you timezone-aware
 /// access to recurrence data without the todo needing to store a copy of the
 /// calendar timezone.
+///
+/// ## Serialisation
+///
+/// `CalendarTodo` does not implement `Serialize` or `Deserialize`. It is a borrowed
+/// view type and cannot be serialised independently. To serialise the underlying
+/// todo, use [`.todo()`](CalendarTodo::todo) and serialise that directly.
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarTodo<'a> {
     todo: &'a Todo,
