@@ -5,6 +5,31 @@ use std::{fmt, mem, ops::Deref};
 use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
 
+/// Newtype wrapping an IANA timezone name, used as the argument to [`Calendar::timezone`].
+///
+/// Not part of the public API — exists only to make the `impl Into<TimezoneId>` bound work
+/// for both plain strings and (with the `chrono-tz` feature) `chrono_tz::Tz` values.
+struct TimezoneId(String);
+
+impl From<&str> for TimezoneId {
+    fn from(s: &str) -> Self {
+        TimezoneId(s.to_owned())
+    }
+}
+
+impl From<String> for TimezoneId {
+    fn from(s: String) -> Self {
+        TimezoneId(s)
+    }
+}
+
+#[cfg(feature = "chrono-tz")]
+impl From<chrono_tz::Tz> for TimezoneId {
+    fn from(tz: chrono_tz::Tz) -> Self {
+        TimezoneId(tz.name().to_owned())
+    }
+}
+
 mod calendar_component;
 
 pub use calendar_component::CalendarComponent;
@@ -191,24 +216,24 @@ impl Calendar {
             .or_else(|| self.property_value("X-WR-CALDESC"))
     }
 
-    /// Set the `TIMEZONE-ID` and `X-WR-TIMEZONE` `Property`s
+    /// Set the `X-WR-TIMEZONE` and `TIMEZONE-ID` properties.
     ///
-    /// `X-WR-TIMEZONE` is a non-standard extension introduced by Apple iCal.
-    /// to indicate the default timezone for the calendar as a whole (using an IANA timezone name).
+    /// `X-WR-TIMEZONE` is a non-standard extension introduced by Apple iCal
+    /// to declare the default timezone for the calendar as a whole (IANA name).
     ///
-    /// Requires the `chrono-tz` feature. Accepts a [`chrono_tz::Tz`] value, which is
-    /// guaranteed to be a valid IANA timezone name at compile time.
+    /// Accepts either a plain IANA string or, with the `chrono-tz` feature,
+    /// a [`chrono_tz::Tz`] value whose name is validated at compile time.
     ///
     /// ```
     /// # use icalendar::Calendar;
-    /// let cal = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
+    /// let cal = Calendar::new().timezone("Europe/Berlin").done();
     /// assert_eq!(cal.get_timezone(), Some("Europe/Berlin"));
     /// ```
-    #[cfg(feature = "chrono-tz")]
-    pub fn timezone(&mut self, timezone: chrono_tz::Tz) -> &mut Self {
-        let id = timezone.name();
-        self.append_property(Property::new("TIMEZONE-ID", id));
-        self.append_property(Property::new("X-WR-TIMEZONE", id));
+    #[allow(private_bounds)]
+    pub fn timezone(&mut self, timezone: impl Into<TimezoneId>) -> &mut Self {
+        let id = timezone.into();
+        self.append_property(Property::new("TIMEZONE-ID", &id.0));
+        self.append_property(Property::new("X-WR-TIMEZONE", &id.0));
         self
     }
 
@@ -523,6 +548,12 @@ mod tests {
         assert_eq!(calendar.get_name(), Some("name"));
         assert_eq!(calendar.get_description(), Some("description"));
         assert_eq!(calendar.get_timezone(), None);
+    }
+
+    #[test]
+    fn timezone_accepts_str() {
+        let calendar = Calendar::new().timezone("Europe/Berlin").done();
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
     }
 
     #[test]
