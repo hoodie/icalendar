@@ -222,7 +222,7 @@ impl Calendar {
     /// to declare the default timezone for the calendar as a whole (IANA name).
     ///
     /// Accepts either a plain IANA string or, with the `chrono-tz` feature,
-    /// a [`chrono_tz::Tz`] value whose name is validated at compile time.
+    /// a `chrono_tz::Tz` value whose name is validated at compile time.
     ///
     /// ```
     /// # use icalendar::Calendar;
@@ -303,6 +303,12 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Event` components.
+    ///
+    /// If you need timezone-aware recurrence expansion for all-day events, use
+    /// [`calendar_events()`](Calendar::calendar_events) instead.
+    ///
+    // TODO: a future semver-major release will change the return type of this method
+    // to `impl Iterator<Item = CalendarEvent<'_>>`, making calendar_events() redundant.
     pub fn events(&self) -> impl Iterator<Item = &Event> {
         self.components
             .iter()
@@ -323,6 +329,12 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Todo` components.
+    ///
+    /// If you need timezone-aware recurrence expansion for all-day todos, use
+    /// [`calendar_todos()`](Calendar::calendar_todos) instead.
+    ///
+    // TODO: a future semver-major release will change the return type of this method
+    // to `impl Iterator<Item = CalendarTodo<'_>>`, making calendar_todos() redundant.
     pub fn todos(&self) -> impl Iterator<Item = &Todo> {
         self.components
             .iter()
@@ -345,7 +357,7 @@ impl Calendar {
     /// Returns an iterator of [`CalendarEvent`] views that carry the calendar-level timezone.
     ///
     /// Use this instead of [`events()`](Calendar::events) when you need timezone-aware
-    /// recurrence via [`CalendarEvent::get_recurrence`].
+    /// recurrence expansion for all-day events (requires the `recurrence` feature).
     pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
         let tz = self.get_timezone();
         self.events().map(move |event| CalendarEvent {
@@ -357,7 +369,7 @@ impl Calendar {
     /// Returns an iterator of [`CalendarTodo`] views that carry the calendar-level timezone.
     ///
     /// Use this instead of [`todos()`](Calendar::todos) when you need timezone-aware
-    /// recurrence via [`CalendarTodo::get_recurrence`].
+    /// recurrence expansion for all-day todos (requires the `recurrence` feature).
     pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
         let tz = self.get_timezone();
         self.todos().map(move |todo| CalendarTodo {
