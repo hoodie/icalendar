@@ -131,3 +131,8 @@ required-features = ["parser"]
 name = "recurrence_parse"
 path = "examples/recurrence_parse.rs"
 required-features = ["recurrence", "parser"]
+
+[[example]]
+name = "recurrence_calendar_tz"
+path = "examples/recurrence_calendar_tz.rs"
+required-features = ["recurrence"]
