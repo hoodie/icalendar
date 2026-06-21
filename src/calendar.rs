@@ -216,7 +216,7 @@ impl Calendar {
             .or_else(|| self.property_value("X-WR-CALDESC"))
     }
 
-    /// Set the `X-WR-TIMEZONE` and `TIMEZONE-ID` properties.
+    /// Set the `X-WR-TIMEZONE` property.
     ///
     /// `X-WR-TIMEZONE` is a non-standard extension introduced by Apple iCal
     /// to declare the default timezone for the calendar as a whole (IANA name).
@@ -232,15 +232,18 @@ impl Calendar {
     #[allow(private_bounds)]
     pub fn timezone(&mut self, timezone: impl Into<TimezoneId>) -> &mut Self {
         let id = timezone.into();
-        self.append_property(Property::new("TIMEZONE-ID", &id.0));
         self.append_property(Property::new("X-WR-TIMEZONE", &id.0));
         self
     }
 
-    /// Gets the value of the `TIMEZONE-ID` or `X-WR-TIMEZONE` property.
+    /// Gets the value of the `X-WR-TIMEZONE` property.
+    ///
+    /// Calendars serialised by older versions of this crate may carry a `TIMEZONE-ID`
+    /// property instead. That property is no longer written or read by this crate.
+    /// If you need to migrate, read it directly via
+    /// [`property_value("TIMEZONE-ID")`](Calendar::property_value).
     pub fn get_timezone(&self) -> Option<&str> {
-        self.property_value("TIMEZONE-ID")
-            .or_else(|| self.property_value("X-WR-TIMEZONE"))
+        self.property_value("X-WR-TIMEZONE")
     }
 
     /// Set the `REFRESH-INTERVAL` and `X-PUBLISHED-TTL` `Property`s
