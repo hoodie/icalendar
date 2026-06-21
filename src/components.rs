@@ -491,24 +491,16 @@ pub trait EventLike: Component {
     //     self.try_recurrence()?.ok()
     // }
 
-    /// Get recurrence rules.
+    /// Builds an [`rrule::RRuleSet`] from `DTSTART`, `RRULE`, `RDATE`, and `EXDATE`.
     ///
-    /// Builds an [`rrule::RRuleSet`] from the component's `DTSTART`, `RRULE`, `RDATE`,
-    /// and `EXDATE` properties.
+    /// For DATE-only `DTSTART` values, pass through a [`CalendarEvent`](crate::CalendarEvent)
+    /// or [`CalendarTodo`](crate::CalendarTodo) if you want midnight anchored to the
+    /// calendar's timezone - otherwise the `rrule` crate treats it as local time.
     ///
-    /// When `DTSTART` carries only a `DATE` value (no explicit timezone), midnight is
-    /// anchored to the calendar-level timezone (`X-WR-TIMEZONE` / `TIMEZONE-ID`) if
-    /// the component was parsed from or added to a [`Calendar`](crate::Calendar) that
-    /// carries one. Otherwise the date is passed through as-is (interpreted as local
-    /// time by the `rrule` crate).
+    /// Errors on missing or malformed `DTSTART`, or invalid `RRULE` syntax.
     ///
-    /// Returns `Ok(RRuleSet)` if the recurrence data was parsed successfully.
-    /// Returns `Err(RecurrenceError)` if the component's recurrence properties could
-    /// not be parsed (e.g. missing or malformed `DTSTART`, invalid `RRULE` syntax).
-    ///
-    /// Note: when no `RRULE` is present the returned set will still yield the `DTSTART`
-    /// instant as its single occurrence (via an implicit `RDATE`), in accordance with
-    /// RFC 5545 §3.6.1.
+    /// With no `RRULE`, the set still yields `DTSTART` as a single occurrence
+    /// (via an implicit `RDATE`), per RFC 5545 §3.6.1.
     #[cfg(feature = "recurrence")]
     fn get_recurrence(&self) -> Result<rrule::RRuleSet, RecurrenceError> {
         build_recurrence_set(self, None)
@@ -536,12 +528,11 @@ pub trait EventLike: Component {
     }
 }
 
-/// Builds an [`rrule::RRuleSet`] from a component's `DTSTART`, `RRULE`, `RDATE`,
-/// and `EXDATE` properties, optionally anchoring DATE-only values to the given
-/// calendar-level timezone.
+/// Shared guts of [`EventLike::get_recurrence`] and
+/// [`CalendarEvent::get_recurrence`](crate::CalendarEvent::get_recurrence).
 ///
-/// This is the shared implementation behind [`EventLike::get_recurrence`] and the
-/// timezone-aware [`CalendarEvent::get_recurrence`](crate::CalendarEvent::get_recurrence).
+/// Builds an [`rrule::RRuleSet`] from `DTSTART`, `RRULE`, `RDATE`, and `EXDATE`.
+/// Pass `calendar_tz` to anchor DATE-only `DTSTART` values to a specific timezone.
 #[cfg(feature = "recurrence")]
 pub(crate) fn build_recurrence_set(
     component: &(impl Component + ?Sized),

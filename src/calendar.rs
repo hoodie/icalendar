@@ -5,10 +5,10 @@ use std::{fmt, mem, ops::Deref};
 use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
 
-/// Newtype wrapping an IANA timezone name, used as the argument to [`Calendar::timezone`].
+/// IANA timezone name newtype, used as the argument to [`Calendar::timezone`].
 ///
-/// Not part of the public API — exists only to make the `impl Into<TimezoneId>` bound work
-/// for both plain strings and (with the `chrono-tz` feature) `chrono_tz::Tz` values.
+/// Private. Just here so `impl Into<TimezoneId>` works for plain strings
+/// and (with `chrono-tz`) `chrono_tz::Tz` values.
 struct TimezoneId(String);
 
 impl From<&str> for TimezoneId {
@@ -185,12 +185,10 @@ impl Calendar {
         self
     }
 
-    /// Set the [`NAME`](https://datatracker.ietf.org/doc/html/rfc7986#section-5.1) and `X-WR-CALNAME` `Property`s
+    /// Set the [`NAME`](https://datatracker.ietf.org/doc/html/rfc7986#section-5.1) and `X-WR-CALNAME` properties.
     ///
-    /// `NAME` is defined in [RFC 7986](https://datatracker.ietf.org/doc/html/rfc7986), which extends
-    /// [RFC 5545](https://datatracker.ietf.org/doc/html/rfc5545) with new calendar-level properties.
-    /// `X-WR-CALNAME` is a non-standard extension introduced by Apple iCal and widely supported
-    /// by calendar clients for interoperability.
+    /// `NAME` is from [RFC 7986](https://datatracker.ietf.org/doc/html/rfc7986).
+    /// `X-WR-CALNAME` is the Apple iCal extension; most clients understand it.
     pub fn name(&mut self, name: &str) -> &mut Self {
         self.append_property(Property::new("NAME", name));
         self.append_property(Property::new("X-WR-CALNAME", name));
@@ -216,13 +214,10 @@ impl Calendar {
             .or_else(|| self.property_value("X-WR-CALDESC"))
     }
 
-    /// Set the `X-WR-TIMEZONE` property.
+    /// Set the `X-WR-TIMEZONE` property (the calendar's default timezone).
     ///
-    /// `X-WR-TIMEZONE` is a non-standard extension introduced by Apple iCal
-    /// to declare the default timezone for the calendar as a whole (IANA name).
-    ///
-    /// Accepts either a plain IANA string or, with the `chrono-tz` feature,
-    /// a `chrono_tz::Tz` value whose name is validated at compile time.
+    /// Accepts a plain IANA string or, with the `chrono-tz` feature, a `chrono_tz::Tz`
+    /// value (name validated at compile time).
     ///
     /// ```
     /// # use icalendar::Calendar;
@@ -236,12 +231,11 @@ impl Calendar {
         self
     }
 
-    /// Gets the value of the `X-WR-TIMEZONE` property.
+    /// Returns the `X-WR-TIMEZONE` value, or `None` if unset.
     ///
-    /// Calendars serialised by older versions of this crate may carry a `TIMEZONE-ID`
-    /// property instead. That property is no longer written or read by this crate.
-    /// If you need to migrate, read it directly via
-    /// [`property_value("TIMEZONE-ID")`](Calendar::property_value).
+    /// Older versions of this crate wrote `TIMEZONE-ID` instead. That property is no
+    /// longer read here - use [`property_value("TIMEZONE-ID")`](Calendar::property_value)
+    /// if you need to handle those old calendars.
     pub fn get_timezone(&self) -> Option<&str> {
         self.property_value("X-WR-TIMEZONE")
     }
@@ -304,11 +298,11 @@ impl Calendar {
 
     /// Returns an iterator over all `Event` components.
     ///
-    /// If you need timezone-aware recurrence expansion for all-day events, use
+    /// For timezone-aware recurrence on all-day events, use
     /// [`calendar_events()`](Calendar::calendar_events) instead.
     ///
-    // TODO: a future semver-major release will change the return type of this method
-    // to `impl Iterator<Item = CalendarEvent<'_>>`, making calendar_events() redundant.
+    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarEvent<'_>>`
+    // and drop calendar_events().
     pub fn events(&self) -> impl Iterator<Item = &Event> {
         self.components
             .iter()
@@ -330,11 +324,11 @@ impl Calendar {
 
     /// Returns an iterator over all `Todo` components.
     ///
-    /// If you need timezone-aware recurrence expansion for all-day todos, use
+    /// For timezone-aware recurrence on all-day todos, use
     /// [`calendar_todos()`](Calendar::calendar_todos) instead.
     ///
-    // TODO: a future semver-major release will change the return type of this method
-    // to `impl Iterator<Item = CalendarTodo<'_>>`, making calendar_todos() redundant.
+    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarTodo<'_>>`
+    // and drop calendar_todos().
     pub fn todos(&self) -> impl Iterator<Item = &Todo> {
         self.components
             .iter()
@@ -354,10 +348,9 @@ impl Calendar {
             })
     }
 
-    /// Returns an iterator of [`CalendarEvent`] views that carry the calendar-level timezone.
+    /// Like [`events()`](Calendar::events) but each item carries the calendar's timezone.
     ///
-    /// Use this instead of [`events()`](Calendar::events) when you need timezone-aware
-    /// recurrence expansion for all-day events (requires the `recurrence` feature).
+    /// Needed for timezone-aware recurrence on all-day events (`recurrence` feature).
     pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
         let tz = self.get_timezone();
         self.events().map(move |event| CalendarEvent {
@@ -366,10 +359,9 @@ impl Calendar {
         })
     }
 
-    /// Returns an iterator of [`CalendarTodo`] views that carry the calendar-level timezone.
+    /// Like [`todos()`](Calendar::todos) but each item carries the calendar's timezone.
     ///
-    /// Use this instead of [`todos()`](Calendar::todos) when you need timezone-aware
-    /// recurrence expansion for all-day todos (requires the `recurrence` feature).
+    /// Needed for timezone-aware recurrence on all-day todos (`recurrence` feature).
     pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
         let tz = self.get_timezone();
         self.todos().map(move |todo| CalendarTodo {
@@ -379,17 +371,15 @@ impl Calendar {
     }
 }
 
-/// A borrowed view of an [`Event`] together with its parent [`Calendar`]'s timezone.
+/// Borrowed view of an [`Event`] paired with its calendar's timezone.
 ///
-/// Obtained via [`Calendar::calendar_events`]. This type gives you timezone-aware
-/// access to recurrence data without the event needing to store a copy of the
-/// calendar timezone.
+/// Obtained from [`Calendar::calendar_events`]. The timezone is needed to anchor
+/// DATE-only `DTSTART` values when expanding recurrences.
 ///
 /// ## Serialisation
 ///
-/// `CalendarEvent` does not implement `Serialize` or `Deserialize`. It is a borrowed
-/// view type and cannot be serialised independently. To serialise the underlying
-/// event, use [`.event()`](CalendarEvent::event) and serialise that directly.
+/// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
+/// Serialise the inner event via [`.event()`](CalendarEvent::event).
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarEvent<'a> {
     event: &'a Event,
@@ -397,19 +387,17 @@ pub struct CalendarEvent<'a> {
 }
 
 impl<'a> CalendarEvent<'a> {
-    /// Returns the underlying [`Event`] reference.
+    /// The underlying event.
     pub fn event(&self) -> &'a Event {
         self.event
     }
 
-    /// Returns the calendar-level timezone, if set.
+    /// The calendar's timezone, if one was set.
     pub fn calendar_tz(&self) -> Option<&str> {
         self.calendar_tz
     }
 
-    /// Get recurrence rules, anchoring DATE-only values to the calendar's timezone.
-    ///
-    /// This is the timezone-aware equivalent of [`EventLike::get_recurrence`].
+    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
     #[cfg(feature = "recurrence")]
     pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
         build_recurrence_set(self.event, self.calendar_tz)
@@ -423,17 +411,15 @@ impl<'a> Deref for CalendarEvent<'a> {
     }
 }
 
-/// A borrowed view of a [`Todo`] together with its parent [`Calendar`]'s timezone.
+/// Borrowed view of a [`Todo`] paired with its calendar's timezone.
 ///
-/// Obtained via [`Calendar::calendar_todos`]. This type gives you timezone-aware
-/// access to recurrence data without the todo needing to store a copy of the
-/// calendar timezone.
+/// Obtained from [`Calendar::calendar_todos`]. The timezone is needed to anchor
+/// DATE-only `DTSTART` values when expanding recurrences.
 ///
 /// ## Serialisation
 ///
-/// `CalendarTodo` does not implement `Serialize` or `Deserialize`. It is a borrowed
-/// view type and cannot be serialised independently. To serialise the underlying
-/// todo, use [`.todo()`](CalendarTodo::todo) and serialise that directly.
+/// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
+/// Serialise the inner todo via [`.todo()`](CalendarTodo::todo).
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarTodo<'a> {
     todo: &'a Todo,
@@ -441,19 +427,17 @@ pub struct CalendarTodo<'a> {
 }
 
 impl<'a> CalendarTodo<'a> {
-    /// Returns the underlying [`Todo`] reference.
+    /// The underlying todo.
     pub fn todo(&self) -> &'a Todo {
         self.todo
     }
 
-    /// Returns the calendar-level timezone, if set.
+    /// The calendar's timezone, if one was set.
     pub fn calendar_tz(&self) -> Option<&str> {
         self.calendar_tz
     }
 
-    /// Get recurrence rules, anchoring DATE-only values to the calendar's timezone.
-    ///
-    /// This is the timezone-aware equivalent of [`EventLike::get_recurrence`].
+    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
     #[cfg(feature = "recurrence")]
     pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
         build_recurrence_set(self.todo, self.calendar_tz)
