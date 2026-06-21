@@ -567,6 +567,34 @@ mod tests {
     }
 
     #[test]
+    fn timezone_writes_only_xwr_timezone() {
+        let calendar = Calendar::new().timezone("Europe/Berlin").done();
+        let has_timezone_id = calendar.properties.iter().any(|p| p.key() == "TIMEZONE-ID");
+        let xwr_count = calendar
+            .properties
+            .iter()
+            .filter(|p| p.key() == "X-WR-TIMEZONE")
+            .count();
+        assert!(!has_timezone_id, "TIMEZONE-ID must not be written");
+        assert_eq!(xwr_count, 1, "exactly one X-WR-TIMEZONE property expected");
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
+    }
+
+    #[test]
+    fn get_timezone_ignores_timezone_id() {
+        // Simulate a calendar serialised by an older version of this crate that
+        // wrote TIMEZONE-ID but not X-WR-TIMEZONE.
+        let calendar = Calendar::new()
+            .append_property(Property::new("TIMEZONE-ID", "Europe/Berlin"))
+            .done();
+        assert_eq!(
+            calendar.get_timezone(),
+            None,
+            "get_timezone() must not read TIMEZONE-ID"
+        );
+    }
+
+    #[test]
     fn get_properties_alternate() {
         let calendar = Calendar::new()
             .append_property(Property::new("X-WR-CALNAME", "name"))

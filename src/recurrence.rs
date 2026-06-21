@@ -731,9 +731,55 @@ END:VCALENDAR";
             .unwrap()
             .done();
         let mut calendar = Calendar::new();
-        calendar.timezone(chrono_tz::America::New_York);
+        calendar.timezone("America/New_York");
         calendar.push(event);
         calendar
+    }
+
+    #[test]
+    fn str_and_chrono_tz_produce_same_occurrences() {
+        let event = || {
+            Event::new()
+                .all_day(NaiveDate::from_ymd_opt(2026, 4, 1).unwrap())
+                .recurrence(RRule::default().count(3).freq(Frequency::Daily))
+                .unwrap()
+                .done()
+        };
+
+        let mut str_calendar = Calendar::new();
+        str_calendar.timezone("America/New_York");
+        str_calendar.push(event());
+
+        let mut tz_calendar = Calendar::new();
+        tz_calendar.timezone(chrono_tz::America::New_York);
+        tz_calendar.push(event());
+
+        let str_dates = str_calendar
+            .calendar_events()
+            .next()
+            .unwrap()
+            .get_recurrence()
+            .unwrap()
+            .all(10)
+            .dates;
+
+        let tz_dates = tz_calendar
+            .calendar_events()
+            .next()
+            .unwrap()
+            .get_recurrence()
+            .unwrap()
+            .all(10)
+            .dates;
+
+        assert_eq!(str_dates.len(), tz_dates.len());
+        for (str_dt, tz_dt) in str_dates.iter().zip(tz_dates.iter()) {
+            assert_eq!(
+                str_dt.naive_utc(),
+                tz_dt.naive_utc(),
+                "UTC timestamps must match for string vs chrono_tz path"
+            );
+        }
     }
 
     /// Reproduces <https://github.com/hoodie/icalendar/issues/175>.
