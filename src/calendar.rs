@@ -5,28 +5,42 @@ use std::{fmt, mem, ops::Deref};
 use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
 
-/// IANA timezone name newtype, used as the argument to [`Calendar::timezone`].
+/// Accepted by [`Calendar::timezone`].
 ///
-/// Private. Just here so `impl Into<TimezoneId>` works for plain strings
-/// and (with `chrono-tz`) `chrono_tz::Tz` values.
-struct TimezoneId(String);
+/// Implemented for:
+/// - `&str` and `String` — any IANA timezone name (not validated at compile time)
+/// - `chrono_tz::Tz` — compile-time validated (requires the `chrono-tz` feature)
+///
+/// This trait is sealed; you cannot implement it for your own types.
+pub trait IntoTimezoneId: private::Sealed {
+    /// Convert into an IANA timezone name string.
+    fn into_timezone_id(self) -> String;
+}
 
-impl From<&str> for TimezoneId {
-    fn from(s: &str) -> Self {
-        TimezoneId(s.to_owned())
+mod private {
+    pub trait Sealed {}
+    impl Sealed for &str {}
+    impl Sealed for String {}
+    #[cfg(feature = "chrono-tz")]
+    impl Sealed for chrono_tz::Tz {}
+}
+
+impl IntoTimezoneId for &str {
+    fn into_timezone_id(self) -> String {
+        self.to_owned()
     }
 }
 
-impl From<String> for TimezoneId {
-    fn from(s: String) -> Self {
-        TimezoneId(s)
+impl IntoTimezoneId for String {
+    fn into_timezone_id(self) -> String {
+        self
     }
 }
 
 #[cfg(feature = "chrono-tz")]
-impl From<chrono_tz::Tz> for TimezoneId {
-    fn from(tz: chrono_tz::Tz) -> Self {
-        TimezoneId(tz.name().to_owned())
+impl IntoTimezoneId for chrono_tz::Tz {
+    fn into_timezone_id(self) -> String {
+        self.name().to_owned()
     }
 }
 
@@ -217,17 +231,22 @@ impl Calendar {
     /// Set the `X-WR-TIMEZONE` property (the calendar's default timezone).
     ///
     /// Accepts a plain IANA string or, with the `chrono-tz` feature, a `chrono_tz::Tz`
-    /// value (name validated at compile time).
+    /// value. Plain strings are stored as-is without validation; if you pass an invalid
+    /// timezone name the calendar will serialise incorrectly. Use `chrono_tz::Tz` for
+    /// compile-time safety.
+    ///
+    /// # Deprecation notice
+    ///
+    /// String support will be removed in a future version. Migrate to `chrono_tz::Tz`
+    /// (enable the `chrono-tz` feature) to avoid a breaking change.
     ///
     /// ```
     /// # use icalendar::Calendar;
     /// let cal = Calendar::new().timezone("Europe/Berlin").done();
     /// assert_eq!(cal.get_timezone(), Some("Europe/Berlin"));
     /// ```
-    #[allow(private_bounds)]
-    pub fn timezone(&mut self, timezone: impl Into<TimezoneId>) -> &mut Self {
-        let id = timezone.into();
-        self.append_property(Property::new("X-WR-TIMEZONE", &id.0));
+    pub fn timezone(&mut self, timezone: impl IntoTimezoneId) -> &mut Self {
+        self.append_property(Property::new("X-WR-TIMEZONE", timezone.into_timezone_id()));
         self
     }
 
@@ -350,7 +369,8 @@ impl Calendar {
 
     /// Like [`events()`](Calendar::events) but each item carries the calendar's timezone.
     ///
-    /// Needed for timezone-aware recurrence on all-day events (`recurrence` feature).
+    /// Needed for timezone-aware recurrence on all-day events.
+    #[cfg(feature = "recurrence")]
     pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
         let tz = self.get_timezone();
         self.events().map(move |event| CalendarEvent {
@@ -361,7 +381,8 @@ impl Calendar {
 
     /// Like [`todos()`](Calendar::todos) but each item carries the calendar's timezone.
     ///
-    /// Needed for timezone-aware recurrence on all-day todos (`recurrence` feature).
+    /// Needed for timezone-aware recurrence on all-day todos.
+    #[cfg(feature = "recurrence")]
     pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
         let tz = self.get_timezone();
         self.todos().map(move |todo| CalendarTodo {
@@ -380,12 +401,14 @@ impl Calendar {
 ///
 /// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
 /// Serialise the inner event via [`.event()`](CalendarEvent::event).
+#[cfg(feature = "recurrence")]
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarEvent<'a> {
     event: &'a Event,
     calendar_tz: Option<&'a str>,
 }
 
+#[cfg(feature = "recurrence")]
 impl<'a> CalendarEvent<'a> {
     /// The underlying event.
     pub fn event(&self) -> &'a Event {
@@ -404,6 +427,7 @@ impl<'a> CalendarEvent<'a> {
     }
 }
 
+#[cfg(feature = "recurrence")]
 impl<'a> Deref for CalendarEvent<'a> {
     type Target = Event;
     fn deref(&self) -> &Event {
@@ -420,14 +444,17 @@ impl<'a> Deref for CalendarEvent<'a> {
 ///
 /// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
 /// Serialise the inner todo via [`.todo()`](CalendarTodo::todo).
+#[cfg(feature = "recurrence")]
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarTodo<'a> {
     todo: &'a Todo,
     calendar_tz: Option<&'a str>,
 }
 
+#[cfg(feature = "recurrence")]
 impl<'a> CalendarTodo<'a> {
     /// The underlying todo.
+    #[cfg(feature = "recurrence")]
     pub fn todo(&self) -> &'a Todo {
         self.todo
     }
@@ -444,6 +471,7 @@ impl<'a> CalendarTodo<'a> {
     }
 }
 
+#[cfg(feature = "recurrence")]
 impl<'a> Deref for CalendarTodo<'a> {
     type Target = Todo;
     fn deref(&self) -> &Todo {
