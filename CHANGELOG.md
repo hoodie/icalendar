@@ -1,5 +1,19 @@
 # Changelog
 
+### [v0.17.12](https://github.com/hoodie/icalendar/compare/v0.17.11...v0.17.12) (2026-06-25)
+
+#### Features
+
+* accept plain IANA string in Calendar::timezone()
+([39776c8](https://github.com/hoodie/icalendar/commit/39776c82ce36e3962576fcb094c50049a15424ce))
+* consider calendar timezone for recurrence events
+([5a0eca7](https://github.com/hoodie/icalendar/commit/5a0eca78cd7bb4a512ee931810e20622028f1c4a))
+
+#### Fixes
+
+* remove TIMEZONE-ID property from timezone() setter and getter
+([e7ea944](https://github.com/hoodie/icalendar/commit/e7ea944bd57e216821f0042a951f3a552313e385))
+
 ### [v0.17.11](https://github.com/hoodie/icalendar/compare/v0.17.10...v0.17.11) (2026-06-03)
 
 #### Fixes
