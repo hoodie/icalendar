@@ -1,7 +1,48 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
+#[cfg(feature = "recurrence")]
+use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
+
+/// Accepted by [`Calendar::timezone`].
+///
+/// Implemented for:
+/// - `&str` and `String` — any IANA timezone name (not validated at compile time)
+/// - `chrono_tz::Tz` — compile-time validated (requires the `chrono-tz` feature)
+///
+/// This trait is sealed; you cannot implement it for your own types.
+pub trait IntoTimezoneId: private::Sealed {
+    /// Convert into an IANA timezone name string.
+    fn into_timezone_id(self) -> String;
+}
+
+mod private {
+    pub trait Sealed {}
+    impl Sealed for &str {}
+    impl Sealed for String {}
+    #[cfg(feature = "chrono-tz")]
+    impl Sealed for chrono_tz::Tz {}
+}
+
+impl IntoTimezoneId for &str {
+    fn into_timezone_id(self) -> String {
+        self.to_owned()
+    }
+}
+
+impl IntoTimezoneId for String {
+    fn into_timezone_id(self) -> String {
+        self
+    }
+}
+
+#[cfg(feature = "chrono-tz")]
+impl IntoTimezoneId for chrono_tz::Tz {
+    fn into_timezone_id(self) -> String {
+        self.name().to_owned()
+    }
+}
 
 mod calendar_component;
 
@@ -93,7 +134,7 @@ where
     where
         T: IntoIterator<Item = U>,
     {
-        self.extend(other.into_iter().map(Into::into));
+        Calendar::extend(self, other);
     }
 }
 
@@ -158,8 +199,10 @@ impl Calendar {
         self
     }
 
-    /// Set the `NAME` and `X-WR-CALNAME` `Property`s
-    // TODO: where is `NAME` specified? it's not in rfc5545 or rfc2445
+    /// Set the [`NAME`](https://datatracker.ietf.org/doc/html/rfc7986#section-5.1) and `X-WR-CALNAME` properties.
+    ///
+    /// `NAME` is from [RFC 7986](https://datatracker.ietf.org/doc/html/rfc7986).
+    /// `X-WR-CALNAME` is the Apple iCal extension; most clients understand it.
     pub fn name(&mut self, name: &str) -> &mut Self {
         self.append_property(Property::new("NAME", name));
         self.append_property(Property::new("X-WR-CALNAME", name));
@@ -185,18 +228,35 @@ impl Calendar {
             .or_else(|| self.property_value("X-WR-CALDESC"))
     }
 
-    /// Set the `TIMEZONE-ID` and `X-WR-TIMEZONE` `Property`s
-    // TODO: where is `TIMEZONE-ID` specified? it's not in rfc5545 or rfc2445
-    pub fn timezone(&mut self, timezone: &str) -> &mut Self {
-        self.append_property(Property::new("TIMEZONE-ID", timezone));
-        self.append_property(Property::new("X-WR-TIMEZONE", timezone));
+    /// Set the `X-WR-TIMEZONE` property (the calendar's default timezone).
+    ///
+    /// Accepts a plain IANA string or, with the `chrono-tz` feature, a `chrono_tz::Tz`
+    /// value. Plain strings are stored as-is without validation; if you pass an invalid
+    /// timezone name the calendar will serialise incorrectly. Use `chrono_tz::Tz` for
+    /// compile-time safety.
+    ///
+    /// # Deprecation notice
+    ///
+    /// String support will be removed in a future version. Migrate to `chrono_tz::Tz`
+    /// (enable the `chrono-tz` feature) to avoid a breaking change.
+    ///
+    /// ```
+    /// # use icalendar::Calendar;
+    /// let cal = Calendar::new().timezone("Europe/Berlin").done();
+    /// assert_eq!(cal.get_timezone(), Some("Europe/Berlin"));
+    /// ```
+    pub fn timezone(&mut self, timezone: impl IntoTimezoneId) -> &mut Self {
+        self.append_property(Property::new("X-WR-TIMEZONE", timezone.into_timezone_id()));
         self
     }
 
-    /// Gets the value of the `TIMEZONE-ID` or `X-WR-TIMEZONE` property.
+    /// Returns the `X-WR-TIMEZONE` value, or `None` if unset.
+    ///
+    /// Older versions of this crate wrote `TIMEZONE-ID` instead. That property is no
+    /// longer read here - use [`property_value("TIMEZONE-ID")`](Calendar::property_value)
+    /// if you need to handle those old calendars.
     pub fn get_timezone(&self) -> Option<&str> {
-        self.property_value("TIMEZONE-ID")
-            .or_else(|| self.property_value("X-WR-TIMEZONE"))
+        self.property_value("X-WR-TIMEZONE")
     }
 
     /// Set the `REFRESH-INTERVAL` and `X-PUBLISHED-TTL` `Property`s
@@ -256,6 +316,12 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Event` components.
+    ///
+    /// For timezone-aware recurrence on all-day events, use
+    /// [`calendar_events()`](Calendar::calendar_events) instead.
+    ///
+    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarEvent<'_>>`
+    // and drop calendar_events().
     pub fn events(&self) -> impl Iterator<Item = &Event> {
         self.components
             .iter()
@@ -276,6 +342,12 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Todo` components.
+    ///
+    /// For timezone-aware recurrence on all-day todos, use
+    /// [`calendar_todos()`](Calendar::calendar_todos) instead.
+    ///
+    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarTodo<'_>>`
+    // and drop calendar_todos().
     pub fn todos(&self) -> impl Iterator<Item = &Todo> {
         self.components
             .iter()
@@ -293,6 +365,117 @@ impl Calendar {
                 CalendarComponent::Todo(todo) => Some(todo),
                 _ => None,
             })
+    }
+
+    /// Like [`events()`](Calendar::events) but each item carries the calendar's timezone.
+    ///
+    /// Needed for timezone-aware recurrence on all-day events.
+    #[cfg(feature = "recurrence")]
+    pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
+        let tz = self.get_timezone();
+        self.events().map(move |event| CalendarEvent {
+            event,
+            calendar_tz: tz,
+        })
+    }
+
+    /// Like [`todos()`](Calendar::todos) but each item carries the calendar's timezone.
+    ///
+    /// Needed for timezone-aware recurrence on all-day todos.
+    #[cfg(feature = "recurrence")]
+    pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
+        let tz = self.get_timezone();
+        self.todos().map(move |todo| CalendarTodo {
+            todo,
+            calendar_tz: tz,
+        })
+    }
+}
+
+/// Borrowed view of an [`Event`] paired with its calendar's timezone.
+///
+/// Obtained from [`Calendar::calendar_events`]. The timezone is needed to anchor
+/// DATE-only `DTSTART` values when expanding recurrences.
+///
+/// ## Serialisation
+///
+/// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
+/// Serialise the inner event via [`.event()`](CalendarEvent::event).
+#[cfg(feature = "recurrence")]
+#[derive(Debug, Clone, Copy)]
+pub struct CalendarEvent<'a> {
+    event: &'a Event,
+    calendar_tz: Option<&'a str>,
+}
+
+#[cfg(feature = "recurrence")]
+impl<'a> CalendarEvent<'a> {
+    /// The underlying event.
+    pub fn event(&self) -> &'a Event {
+        self.event
+    }
+
+    /// The calendar's timezone, if one was set.
+    pub fn calendar_tz(&self) -> Option<&str> {
+        self.calendar_tz
+    }
+
+    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
+    #[cfg(feature = "recurrence")]
+    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
+        build_recurrence_set(self.event, self.calendar_tz)
+    }
+}
+
+#[cfg(feature = "recurrence")]
+impl<'a> Deref for CalendarEvent<'a> {
+    type Target = Event;
+    fn deref(&self) -> &Event {
+        self.event
+    }
+}
+
+/// Borrowed view of a [`Todo`] paired with its calendar's timezone.
+///
+/// Obtained from [`Calendar::calendar_todos`]. The timezone is needed to anchor
+/// DATE-only `DTSTART` values when expanding recurrences.
+///
+/// ## Serialisation
+///
+/// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
+/// Serialise the inner todo via [`.todo()`](CalendarTodo::todo).
+#[cfg(feature = "recurrence")]
+#[derive(Debug, Clone, Copy)]
+pub struct CalendarTodo<'a> {
+    todo: &'a Todo,
+    calendar_tz: Option<&'a str>,
+}
+
+#[cfg(feature = "recurrence")]
+impl<'a> CalendarTodo<'a> {
+    /// The underlying todo.
+    #[cfg(feature = "recurrence")]
+    pub fn todo(&self) -> &'a Todo {
+        self.todo
+    }
+
+    /// The calendar's timezone, if one was set.
+    pub fn calendar_tz(&self) -> Option<&str> {
+        self.calendar_tz
+    }
+
+    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
+    #[cfg(feature = "recurrence")]
+    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
+        build_recurrence_set(self.todo, self.calendar_tz)
+    }
+}
+
+#[cfg(feature = "recurrence")]
+impl<'a> Deref for CalendarTodo<'a> {
+    type Target = Todo;
+    fn deref(&self) -> &Todo {
+        self.todo
     }
 }
 
@@ -400,11 +583,51 @@ mod tests {
         let calendar = Calendar::new()
             .name("name")
             .description("description")
-            .timezone("timezone")
             .done();
         assert_eq!(calendar.get_name(), Some("name"));
         assert_eq!(calendar.get_description(), Some("description"));
-        assert_eq!(calendar.get_timezone(), Some("timezone"));
+        assert_eq!(calendar.get_timezone(), None);
+    }
+
+    #[test]
+    fn timezone_accepts_str() {
+        let calendar = Calendar::new().timezone("Europe/Berlin").done();
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
+    }
+
+    #[test]
+    #[cfg(feature = "chrono-tz")]
+    fn timezone_accepts_chrono_tz() {
+        let calendar = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
+    }
+
+    #[test]
+    fn timezone_writes_only_xwr_timezone() {
+        let calendar = Calendar::new().timezone("Europe/Berlin").done();
+        let has_timezone_id = calendar.properties.iter().any(|p| p.key() == "TIMEZONE-ID");
+        let xwr_count = calendar
+            .properties
+            .iter()
+            .filter(|p| p.key() == "X-WR-TIMEZONE")
+            .count();
+        assert!(!has_timezone_id, "TIMEZONE-ID must not be written");
+        assert_eq!(xwr_count, 1, "exactly one X-WR-TIMEZONE property expected");
+        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
+    }
+
+    #[test]
+    fn get_timezone_ignores_timezone_id() {
+        // Simulate a calendar serialised by an older version of this crate that
+        // wrote TIMEZONE-ID but not X-WR-TIMEZONE.
+        let calendar = Calendar::new()
+            .append_property(Property::new("TIMEZONE-ID", "Europe/Berlin"))
+            .done();
+        assert_eq!(
+            calendar.get_timezone(),
+            None,
+            "get_timezone() must not read TIMEZONE-ID"
+        );
     }
 
     #[test]
