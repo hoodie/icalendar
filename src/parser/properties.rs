@@ -204,6 +204,55 @@ fn unescape_text() {
 }
 
 #[test]
+fn text_roundtrip_is_lossless() {
+    // Serialize then parse must return the original TEXT value unchanged;
+    // `unescape_text` is the exact inverse of `escape_text`.
+    fn roundtrip(original: &str) -> String {
+        let serialized: String = crate::Property::new("SUMMARY", original)
+            .try_into()
+            .unwrap();
+        serialized
+            .parse::<crate::Property>()
+            .unwrap()
+            .value()
+            .to_string()
+    }
+
+    let corpus = [
+        "plain text",
+        "Hello, world; test:value",
+        r"a\nb",         // literal backslash-n, not a newline
+        r"a\Nb",         // literal backslash-N, not a newline
+        r"a\:b",         // literal backslash before a colon
+        r"C:\next\node", // Windows path
+        r"back\\slash",
+        "comma,semicolon;colon:end",
+        "newline\nhere",
+        "trailing backslash\\",
+        r"mix \, \; \\ \n done",
+        "üni¢ode ☃ \\ , ; \n",
+    ];
+    for original in corpus {
+        assert_eq!(
+            roundtrip(original),
+            original,
+            "round-trip changed {original:?}"
+        );
+    }
+}
+
+#[test]
+fn unescape_preserves_lenient_decodes() {
+    // `\N` is the RFC-5545 newline escape; `\:` and unknown escapes are
+    // non-standard producer output the parser has always accepted.
+    let decode = |raw: &str| raw.parse::<crate::Property>().unwrap().value().to_string();
+    assert_eq!(decode("DESCRIPTION:a\\:b\n"), "a:b");
+    assert_eq!(decode("DESCRIPTION:line\\Nbreak\n"), "line\nbreak");
+    // Unknown escape passes through verbatim, keeping the backslash.
+    assert_eq!(decode("DESCRIPTION:tab\\tend\n"), "tab\\tend");
+}
+
+#[test]
 fn property_escape_url_as_url() {
     assert_eq!(
         "URL:https://example.com\n"
