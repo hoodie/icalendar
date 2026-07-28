@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.13](https://github.com/hoodie/icalendar/compare/v0.17.12...v0.17.13) (2026-07-28)
+
+#### Fixes
+
+* make text unescape the exact inverse of escape
+([476ff2f](https://github.com/hoodie/icalendar/commit/476ff2f0d779a540ea9d842e6befdb7c10b0aa45))
+
 ### [v0.17.12](https://github.com/hoodie/icalendar/compare/v0.17.11...v0.17.12) (2026-06-25)
 
 #### Features
