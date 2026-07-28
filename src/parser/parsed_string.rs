@@ -35,25 +35,39 @@ impl<'a> ParseString<'a> {
         }
     }
 
+    /// Reverses `Property::escape_text`.
+    ///
+    /// Single left-to-right pass so it is the exact inverse of the escaper:
+    /// chained `String::replace` collapsed `\\` first, freeing the backslash
+    /// to recombine with the next char and be eaten by a later rule.
     pub fn unescape_text(self) -> ParseString<'a> {
-        if self.0.contains(r#"\\"#)
-            || self.0.contains(r#"\,"#)
-            || self.0.contains(r#"\;"#)
-            || self.0.contains(r#"\:"#)
-            || self.0.contains(r#"\N"#)
-            || self.0.contains(r#"\n"#)
-        {
-            self.0
-                .replace(r#"\\"#, r#"\"#)
-                .replace(r#"\,"#, ",")
-                .replace(r#"\;"#, ";")
-                .replace(r#"\:"#, ":")
-                .replace(r#"\N"#, "\n")
-                .replace(r#"\n"#, "\n")
-                .into()
-        } else {
-            self
+        if !self.0.contains('\\') {
+            return self;
         }
+        let input = self.0.as_ref();
+        let mut out = String::with_capacity(input.len());
+        let mut chars = input.chars();
+        while let Some(c) = chars.next() {
+            if c != '\\' {
+                out.push(c);
+                continue;
+            }
+            match chars.next() {
+                Some('\\') => out.push('\\'),
+                Some(',') => out.push(','),
+                Some(';') => out.push(';'),
+                // lenient: some producers escape the (unreserved) colon
+                Some(':') => out.push(':'),
+                Some('n') | Some('N') => out.push('\n'),
+                // unknown escape or trailing backslash: keep verbatim
+                Some(other) => {
+                    out.push('\\');
+                    out.push(other);
+                }
+                None => out.push('\\'),
+            }
+        }
+        out.into()
     }
 }
 
