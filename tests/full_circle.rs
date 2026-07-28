@@ -55,7 +55,7 @@ fn serializes_correctly() {
     println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
-    println!("serialized: {}", &serialized); // print what we built
+    println!("serialized: {}", serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
     println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
@@ -69,7 +69,7 @@ fn escape_late() {
     println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
-    println!("serialized: {}", &serialized); // print what we built
+    println!("serialized: {}", serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
     println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
@@ -85,7 +85,7 @@ fn unescape_text() {
     println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
-    println!("serialized:\n {}", &serialized); // print what we built
+    println!("serialized:\n {}", serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
     println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
@@ -100,7 +100,7 @@ fn reparse_equivalence() {
     println!("built calendar:\n{built_calendar:#?}"); // inner representation of what we built
 
     let serialized = built_calendar.to_string();
-    println!("serialized: {}", &serialized); // print what we built
+    println!("serialized: {}", serialized); // print what we built
 
     let from_parsed = Calendar::from_str(&serialized).unwrap();
     println!("parsed again:\n{from_parsed:#?}"); // inner representation of what we built and then parsed
