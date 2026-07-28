@@ -16,9 +16,13 @@ jobs:
         id: commit_check
         run: |
           git show-ref
-          curl -sSfL https://github.com/convco/convco/releases/latest/download/convco-ubuntu.zip | zcat > convco
+          curl -sSfL -o convco.tar.gz https://github.com/convco/convco/releases/download/v0.7.0/convco-v0.7.0-x86_64-unknown-linux-musl.tar.gz
+          echo "37a21cb2e88e418f35068db77b3255f88a153ddcea42395dc91004ee1460c2db  convco.tar.gz" | sha256sum -c
+          tar -xzf convco.tar.gz --wildcards -O '*/convco' > convco
           chmod +x convco
           ./convco check ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+          rm convco.tar.gz
+
       - name: Check Version Bump
         id: bump_label
         run: |
