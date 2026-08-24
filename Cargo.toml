@@ -24,12 +24,12 @@ chrono-tz = ["dep:chrono-tz"]
 recurrence = ["dep:rrule", "chrono-tz", "dep:thiserror"]
 
 [dependencies]
-serde = { version = "1.0.228", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.150", optional = true }
+serde = { version = "1.0.229", optional = true, features = ["derive"] }
+serde_json = { version = "1.0.151", optional = true }
 iso8601 = "0.6"
 chrono-tz = { version = "0.10", optional = true }
-time = { version = "0.3.49", optional = true }
-thiserror = { version = "2.0.18", optional = true }
+time = { version = "0.3.55", optional = true }
+thiserror = { version = "2.0.20", optional = true }
 
 [dependencies.chrono]
 version = "0.4.45"
