@@ -5,7 +5,7 @@ use nom::{
     character::complete::space0,
     combinator::{eof, opt},
     error::{ContextError, ParseError},
-    multi::many0,
+    multi::{many0, many0_count},
     sequence::{delimited, preceded, separated_pair, tuple},
 };
 
@@ -144,6 +144,26 @@ where
     alt((pair_parameter, base_parameter)).parse(input)
 }
 
+fn quoted_parameter_value<'i, E>(input: &'i str) -> IResult<&'i str, &'i str, E>
+where
+    E: ParseError<&'i str> + ContextError<&'i str>,
+{
+    let (remaining, first) = delimited(tag("\""), is_not("\""), tag("\"")).parse(input)?;
+    let (remaining, additional_values) = many0_count(preceded(
+        tag(","),
+        delimited(tag("\""), is_not("\""), tag("\"")),
+    ))
+    .parse(remaining)?;
+
+    // Keep list delimiters so attendee conversion and serialization retain every address.
+    let value = if additional_values == 0 {
+        first
+    } else {
+        &input[..input.len() - remaining.len()]
+    };
+    Ok((remaining, value))
+}
+
 fn pair_parameter<'i, E>(input: &'i str) -> IResult<&'i str, Parameter<'i>, E>
 where
     E: ParseError<&'i str> + ContextError<&'i str>,
@@ -155,7 +175,7 @@ where
             tag("="),
             opt(alt((
                 eof,
-                delimited(tag("\""), is_not("\""), tag("\"")),
+                quoted_parameter_value,
                 take_till1(|x| x == ';' || x == ':'),
             )))
             .map(remove_empty_string),
@@ -181,7 +201,7 @@ where
             tag("="),
             alt((
                 eof,
-                delimited(tag("\""), is_not("\""), tag("\"")),
+                quoted_parameter_value,
                 take_till1(|x| x == ';' || x == ':'),
             ))
             .map(ParseString::from),
