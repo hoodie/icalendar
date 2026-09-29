@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.14](https://github.com/hoodie/icalendar/compare/v0.17.13...v0.17.14) (2026-09-29)
+
+#### Fixes
+
+* parse quoted attendee parameter lists
+([3ecffa7](https://github.com/hoodie/icalendar/commit/3ecffa7da672faae4f4a6f3a37da8c1841ea13a2))
+
 ### [v0.17.13](https://github.com/hoodie/icalendar/compare/v0.17.12...v0.17.13) (2026-07-28)
 
 #### Fixes
