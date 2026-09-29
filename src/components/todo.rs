@@ -1,5 +1,3 @@
-use chrono::*;
-
 use super::*;
 
 /// VTODO  [(RFC 5545, Section 3.6.2 )](https://tools.ietf.org/html/rfc5545#section-3.6.2)
@@ -141,6 +139,8 @@ impl Todo {
 
 #[cfg(test)]
 mod tests {
+    use chrono::TimeZone as _;
+
     use super::*;
 
     #[test]
