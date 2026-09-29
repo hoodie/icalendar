@@ -48,7 +48,7 @@ fn uid_preserved_in_calendar() {
     calendar.push(todo);
 
     // Extract and modify the todo
-    if let Some(component) = calendar.components.iter_mut().next() {
+    if let Some(component) = calendar.components.first_mut() {
         if let CalendarComponent::Todo(todo) = component {
             // Verify the initial UID
             assert_eq!(todo.get_uid(), Some(uid));
