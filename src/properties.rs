@@ -178,7 +178,9 @@ impl Property {
         if input.starts_with('"') && input.ends_with('"') {
             return input.to_string();
         }
-        if input.contains([':', ';']) {
+        // RFC 5545 §3.1: COLON, SEMICOLON and COMMA must be quoted in a parameter value,
+        // otherwise a comma splits the value into a list of values.
+        if input.contains([':', ';', ',']) {
             let mut quoted = String::with_capacity(input.len() + 2);
             quoted.push('"');
             quoted.push_str(input);
@@ -447,6 +449,20 @@ mod tests {
 
         let expected = r"\n\\\;\,:";
         assert_eq!(expected, Property::escape_text(line));
+    }
+
+    #[test]
+    fn quote_parameter_value_with_comma() {
+        let prop = Property::new("ORGANIZER", "mailto:jdoe@example.com")
+            .add_parameter("CN", "Doe, John")
+            .done();
+
+        let mut buf = String::new();
+        prop.fmt_write(&mut buf).unwrap();
+        assert_eq!(
+            "ORGANIZER;CN=\"Doe, John\":mailto:jdoe@example.com\r\n",
+            buf
+        );
     }
 
     #[test]
