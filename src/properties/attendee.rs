@@ -298,7 +298,7 @@ impl From<Attendee> for Property {
         }
         // RFC 5545 §3.2.11: each MEMBER address MUST be in a quoted-string.
         // We store the pre-quoted comma-separated list so that
-        // `quote_if_contains_colon` in `to_line()` does not double-quote it.
+        // `quote_special_chars` in `to_line()` does not double-quote it.
         if !attendee.member.is_empty() {
             prop.add_parameter("MEMBER", &encode_cal_address_list(&attendee.member));
         }

@@ -171,7 +171,7 @@ impl Property {
             .replace('\n', r#"\n"#)
     }
 
-    fn quote_if_contains_colon(input: &str) -> String {
+    fn quote_special_chars(input: &str) -> String {
         // Already quoted (e.g. pre-quoted multi-value URI lists like
         // `"mailto:a@b.com","mailto:c@d.com"`): emit as-is to avoid
         // wrapping in an extra outer pair of double-quotes.
@@ -198,7 +198,7 @@ impl Property {
 
         write!(line, "{}", self.key)?;
         for Parameter { key, val } in self.params.values() {
-            write!(line, ";{}={}", key, Self::quote_if_contains_colon(val))?;
+            write!(line, ";{}={}", key, Self::quote_special_chars(val))?;
         }
         let value_type = self.value_type();
         match value_type {
@@ -462,6 +462,24 @@ mod tests {
         assert_eq!(
             "ORGANIZER;CN=\"Doe, John\":mailto:jdoe@example.com\r\n",
             buf
+        );
+    }
+
+    #[cfg(feature = "parser")]
+    #[test]
+    fn quote_parameter_value_with_comma_round_trips() {
+        let prop = Property::new("ORGANIZER", "mailto:jdoe@example.com")
+            .add_parameter("CN", "Doe, John")
+            .done();
+
+        let mut buf = String::new();
+        prop.fmt_write(&mut buf).unwrap();
+
+        let parsed: Property = buf.parse().unwrap();
+        assert_eq!(parsed.value(), "mailto:jdoe@example.com");
+        assert_eq!(
+            parsed.params().get("CN").map(Parameter::value),
+            Some("Doe, John")
         );
     }
 
