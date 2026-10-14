@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.15](https://github.com/hoodie/icalendar/compare/v0.17.14...v0.17.15) (2026-10-14)
+
+#### Fixes
+
+* quote parameter values that contain a comma
+([b81d123](https://github.com/hoodie/icalendar/commit/b81d12312b8dcf965b9cc2ed13e18c870252cedc))
+
 ### [v0.17.14](https://github.com/hoodie/icalendar/compare/v0.17.13...v0.17.14) (2026-09-29)
 
 #### Fixes
