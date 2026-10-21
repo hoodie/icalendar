@@ -56,6 +56,18 @@ fn parse_fixtures_icalendar_rb() {
     .unwrap();
 }
 
+#[test]
+fn parse_fixtures_ical_js() {
+    with_all_fixtures("ical-js", |path| {
+        let fixture = std::fs::read_to_string(path).unwrap();
+        if let Err(error) = read_calendar(&unfold(&fixture)) {
+            println!("{error}");
+            panic!("test failed: {path:?}");
+        }
+    })
+    .unwrap();
+}
+
 /// this one is a bit special because the file is not valid utf8
 /// but it's nice to know that we can still parse it
 #[test]
