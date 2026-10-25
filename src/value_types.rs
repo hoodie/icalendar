@@ -35,6 +35,14 @@ pub enum ValueType {
     UtcOffset,
 }
 
+/// Properties whose value is a comma-separated list of TEXT values (RFC 5545
+/// sections 3.8.1.2 and 3.8.1.10). Their value is kept escaped, because
+/// unescaping it would merge the separating commas with escaped commas.
+pub(crate) fn is_text_list(property_name: &str) -> bool {
+    property_name.eq_ignore_ascii_case("CATEGORIES")
+        || property_name.eq_ignore_ascii_case("RESOURCES")
+}
+
 impl ValueType {
     pub(crate) fn by_name(name: &str) -> Option<Self> {
         if name.chars().any(char::is_lowercase) {
