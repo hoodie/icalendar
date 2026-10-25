@@ -202,7 +202,9 @@ impl Property {
         }
         let value_type = self.value_type();
         match value_type {
-            Some(ValueType::Text) => write!(line, ":{}", Self::escape_text(&self.val))?,
+            Some(ValueType::Text) if !crate::value_types::is_text_list(&self.key) => {
+                write!(line, ":{}", Self::escape_text(&self.val))?
+            }
             _ => write!(line, ":{}", self.val)?,
         }
         Ok(line)

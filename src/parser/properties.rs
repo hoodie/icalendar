@@ -242,6 +242,18 @@ fn text_roundtrip_is_lossless() {
 }
 
 #[test]
+fn text_list_values_keep_their_separators() {
+    let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nCATEGORIES:Work,Personal\r\nRESOURCES:Projector,Room A\\, 2nd floor\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    let calendar: crate::Calendar = input.parse().unwrap();
+    let output = calendar.to_string();
+    assert!(output.contains("CATEGORIES:Work,Personal\r\n"), "{output}");
+    assert!(
+        output.contains("RESOURCES:Projector,Room A\\, 2nd floor\r\n"),
+        "{output}"
+    );
+}
+
+#[test]
 fn unescape_preserves_lenient_decodes() {
     // `\N` is the RFC-5545 newline escape; `\:` and unknown escapes are
     // non-standard producer output the parser has always accepted.
@@ -471,7 +483,9 @@ where
             opt(line_ending),
         ))
         .map(|(((name, params), val), _)| {
-            let val = if let Some(value_type) = determin_value_type(&name, &params) {
+            let val = if crate::value_types::is_text_list(name.as_str()) {
+                val
+            } else if let Some(value_type) = determin_value_type(&name, &params) {
                 val.unescape_by_value_type(value_type)
             } else {
                 val
