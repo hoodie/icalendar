@@ -2,7 +2,6 @@
 
 use std::borrow::Cow;
 
-
 pub(crate) fn escape_text(input: &str) -> String {
     input
         .replace('\\', r#"\\"#)
@@ -16,7 +15,6 @@ pub(crate) fn escape_text(input: &str) -> String {
 /// Single left-to-right pass so it is the exact inverse of the escaper:
 /// chained `String::replace` collapsed `\\` first, freeing the backslash
 /// to recombine with the next char and be eaten by a later rule.
-#[cfg_attr(not(feature = "parser"), allow(dead_code))]
 pub(crate) fn unescape_text(input: &str) -> Cow<'_, str> {
     if !input.contains('\\') {
         return Cow::Borrowed(input);
@@ -46,6 +44,37 @@ pub(crate) fn unescape_text(input: &str) -> Cow<'_, str> {
     Cow::Owned(out)
 }
 
+/// Escapes each item and joins them with unescaped commas.
+pub(crate) fn join_text_list<S: AsRef<str>>(items: impl IntoIterator<Item = S>) -> String {
+    items
+        .into_iter()
+        .map(|item| escape_text(item.as_ref()))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// Splits a raw (still escaped) text list on unescaped commas and unescapes each item.
+pub(crate) fn split_text_list(raw: &str) -> Vec<String> {
+    if raw.is_empty() {
+        return Vec::new();
+    }
+    let mut items = Vec::new();
+    let mut start = 0;
+    let mut escaped = false;
+    for (i, c) in raw.char_indices() {
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            ',' => {
+                items.push(unescape_text(&raw[start..i]).into_owned());
+                start = i + 1;
+            }
+            _ => {}
+        }
+    }
+    items.push(unescape_text(&raw[start..]).into_owned());
+    items
+}
 
 #[cfg(test)]
 mod tests {
@@ -93,4 +122,19 @@ mod tests {
         assert!(matches!(unescape_text("plain"), Cow::Borrowed(_)));
     }
 
+    #[test]
+    fn text_list_roundtrip() {
+        assert_eq!(split_text_list(&join_text_list(CORPUS)), CORPUS);
+    }
+
+    #[test]
+    fn split_text_list_on_unescaped_commas_only() {
+        assert_eq!(
+            split_text_list(r"Projector,Room A\, 2nd floor"),
+            ["Projector", "Room A, 2nd floor"]
+        );
+        assert_eq!(split_text_list(r"a\\,b"), [r"a\", "b"]);
+        assert_eq!(split_text_list("a,,b"), ["a", "", "b"]);
+        assert!(split_text_list("").is_empty());
+    }
 }

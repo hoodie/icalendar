@@ -5,7 +5,11 @@ use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
 
-use crate::{Attendee, properties::*};
+use crate::{
+    Attendee,
+    properties::*,
+    text::{join_text_list, split_text_list},
+};
 use date_time::{format_utc_date_time, naive_date_to_property, parse_utc_date_time};
 
 pub mod alarm;
@@ -67,6 +71,22 @@ impl InnerComponent {
     pub fn property_value(&self, key: &str) -> Option<&str> {
         Some(self.properties.get(key)?.value())
     }
+}
+
+/// Collects the items of a text list property (e.g. `CATEGORIES`) across all its occurrences.
+fn get_text_list<C: Component + ?Sized>(component: &C, key: &str) -> Option<Vec<String>> {
+    let single = component.properties().get(key);
+    let multi = component.multi_properties().get(key);
+    if single.is_none() && multi.is_none() {
+        return None;
+    }
+    Some(
+        single
+            .into_iter()
+            .chain(multi.into_iter().flatten())
+            .flat_map(|p| split_text_list(p.value()))
+            .collect(),
+    )
 }
 
 /// Implemented by everything that goes into a `Calendar`
@@ -375,6 +395,38 @@ pub trait Component {
 
 /// Common trait of [`Event`] and [`Todo`]
 pub trait EventLike: Component {
+    /// Appends a [`CATEGORIES`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.2) property.
+    ///
+    /// Each item is escaped, so it may contain commas.
+    fn categories<I, S>(&mut self, categories: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.append_multi_property(Property::new("CATEGORIES", join_text_list(categories)))
+    }
+
+    /// Gets all categories, across every `CATEGORIES` property.
+    fn get_categories(&self) -> Option<Vec<String>> {
+        get_text_list(self, "CATEGORIES")
+    }
+
+    /// Appends a [`RESOURCES`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.10) property.
+    ///
+    /// Each item is escaped, so it may contain commas.
+    fn resources<I, S>(&mut self, resources: I) -> &mut Self
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.append_multi_property(Property::new("RESOURCES", join_text_list(resources)))
+    }
+
+    /// Gets all resources, across every `RESOURCES` property.
+    fn get_resources(&self) -> Option<Vec<String>> {
+        get_text_list(self, "RESOURCES")
+    }
+
     /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
     ///
     /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
@@ -703,6 +755,25 @@ mod tests {
     use chrono::TimeZone;
 
     use super::*;
+
+    #[test]
+    fn text_list_getter_merges_all_occurrences() {
+        let mut event = Event::new();
+        event
+            .add_property("CATEGORIES", r"Single\, one")
+            .categories(["a", "b"])
+            .categories(["c"]);
+        assert_eq!(
+            event.get_categories().unwrap(),
+            ["Single, one", "a", "b", "c"]
+        );
+
+        assert_eq!(
+            Event::new().add_property("CATEGORIES", "").get_categories(),
+            Some(vec![])
+        );
+        assert_eq!(Event::new().get_categories(), None);
+    }
 
     #[test]
     #[cfg(feature = "parser")]

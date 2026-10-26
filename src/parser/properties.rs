@@ -252,6 +252,63 @@ fn text_list_values_keep_their_separators() {
     );
 }
 
+#[test]
+fn text_list_vec_roundtrip() {
+    use crate::{Component, Event, EventLike, Todo};
+    let tricky = vec!["Room A, 2nd floor", "a;b", r"back\slash", "plain"];
+    let calendar = crate::Calendar::new()
+        .push(
+            Event::new()
+                .uid("1")
+                .categories(["Work", "Personal"])
+                .categories(vec![String::from("Extra")])
+                .resources(&tricky)
+                .done(),
+        )
+        .push(Todo::new().uid("2").categories(&tricky).done())
+        .done();
+    let output = calendar.to_string();
+    assert!(output.contains("CATEGORIES:Work,Personal\r\n"), "{output}");
+    assert!(
+        output.contains(r"RESOURCES:Room A\, 2nd floor,a\;b,back\\slash,plain"),
+        "{output}"
+    );
+
+    let parsed: crate::Calendar = output.parse().unwrap();
+    let event = parsed.components.first().unwrap().as_event().unwrap();
+    assert_eq!(
+        event.get_categories().unwrap(),
+        ["Work", "Personal", "Extra"]
+    );
+    assert_eq!(event.get_resources().unwrap(), tricky);
+    let todo = parsed.components.get(1).unwrap().as_todo().unwrap();
+    assert_eq!(todo.get_categories().unwrap(), tricky);
+    assert_eq!(todo.get_resources(), None);
+}
+
+#[test]
+fn text_list_parsed_from_input() {
+    use crate::EventLike;
+    let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nRESOURCES:Projector,Room A\\, 2nd floor\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    let calendar: crate::Calendar = input.parse().unwrap();
+    let event = calendar.components.first().unwrap().as_event().unwrap();
+    assert_eq!(
+        event.get_resources().unwrap(),
+        ["Projector", "Room A, 2nd floor"]
+    );
+}
+
+#[test]
+fn text_list_merges_repeated_lines_from_input() {
+    use crate::EventLike;
+    let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nCATEGORIES:Work,Personal\r\nCATEGORIES:Urgent\\, maybe\r\nCATEGORIES:Later\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    let calendar: crate::Calendar = input.parse().unwrap();
+    let event = calendar.components.first().unwrap().as_event().unwrap();
+    assert_eq!(
+        event.get_categories().unwrap(),
+        ["Work", "Personal", "Urgent, maybe", "Later"]
+    );
+}
 
 #[test]
 fn property_escape_url_as_url() {
