@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.16](https://github.com/hoodie/icalendar/compare/v0.17.15...v0.17.16) (2026-10-26)
+
+#### Fixes
+
+* keep the separate values of CATEGORIES and RESOURCES
+([62a134c](https://github.com/hoodie/icalendar/commit/62a134c4808bb0115026fe0f98ccc3ca4d3c366c))
+
 ### [v0.17.15](https://github.com/hoodie/icalendar/compare/v0.17.14...v0.17.15) (2026-10-14)
 
 #### Fixes
