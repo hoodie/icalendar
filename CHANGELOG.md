@@ -1,5 +1,12 @@
 # Changelog
 
+### [v0.17.17](https://github.com/hoodie/icalendar/compare/v0.17.16...v0.17.17) (2026-10-27)
+
+#### Features
+
+* read and write CATEGORIES and RESOURCES as lists
+([399827f](https://github.com/hoodie/icalendar/commit/399827f8c130557acbd271d514e5d692c803315b))
+
 ### [v0.17.16](https://github.com/hoodie/icalendar/compare/v0.17.15...v0.17.16) (2026-10-26)
 
 #### Fixes
