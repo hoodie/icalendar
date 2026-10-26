@@ -88,6 +88,11 @@ path = "examples/json_to_ical.rs"
 required-features = ["parser", "serde", "serde_json"]
 
 [[example]]
+name = "categories"
+path = "examples/categories.rs"
+required-features = ["parser"]
+
+[[example]]
 name = "full_circle"
 path = "examples/full_circle.rs"
 required-features = ["parser"]
