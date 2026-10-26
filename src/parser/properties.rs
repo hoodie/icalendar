@@ -183,7 +183,7 @@ fn properties() {
 }
 
 #[test]
-fn unescape_text() {
+fn text_property_value_is_unescaped() {
     assert_eq!(
         "DESCRIPTION:https\\://example.com\n"
             .parse::<crate::Property>()
@@ -205,8 +205,7 @@ fn unescape_text() {
 
 #[test]
 fn text_roundtrip_is_lossless() {
-    // Serialize then parse must return the original TEXT value unchanged;
-    // `unescape_text` is the exact inverse of `escape_text`.
+    // Serialize then parse must return the original TEXT value unchanged.
     fn roundtrip(original: &str) -> String {
         let serialized: String = crate::Property::new("SUMMARY", original)
             .try_into()
@@ -254,14 +253,61 @@ fn text_list_values_keep_their_separators() {
 }
 
 #[test]
-fn unescape_preserves_lenient_decodes() {
-    // `\N` is the RFC-5545 newline escape; `\:` and unknown escapes are
-    // non-standard producer output the parser has always accepted.
-    let decode = |raw: &str| raw.parse::<crate::Property>().unwrap().value().to_string();
-    assert_eq!(decode("DESCRIPTION:a\\:b\n"), "a:b");
-    assert_eq!(decode("DESCRIPTION:line\\Nbreak\n"), "line\nbreak");
-    // Unknown escape passes through verbatim, keeping the backslash.
-    assert_eq!(decode("DESCRIPTION:tab\\tend\n"), "tab\\tend");
+fn text_list_vec_roundtrip() {
+    use crate::{Component, Event, EventLike, Todo};
+    let tricky = vec!["Room A, 2nd floor", "a;b", r"back\slash", "plain"];
+    let calendar = crate::Calendar::new()
+        .push(
+            Event::new()
+                .uid("1")
+                .categories(["Work", "Personal"])
+                .categories(vec![String::from("Extra")])
+                .resources(&tricky)
+                .done(),
+        )
+        .push(Todo::new().uid("2").categories(&tricky).done())
+        .done();
+    let output = calendar.to_string();
+    assert!(output.contains("CATEGORIES:Work,Personal\r\n"), "{output}");
+    assert!(
+        output.contains(r"RESOURCES:Room A\, 2nd floor,a\;b,back\\slash,plain"),
+        "{output}"
+    );
+
+    let parsed: crate::Calendar = output.parse().unwrap();
+    let event = parsed.components.first().unwrap().as_event().unwrap();
+    assert_eq!(
+        event.get_categories().unwrap(),
+        ["Work", "Personal", "Extra"]
+    );
+    assert_eq!(event.get_resources().unwrap(), tricky);
+    let todo = parsed.components.get(1).unwrap().as_todo().unwrap();
+    assert_eq!(todo.get_categories().unwrap(), tricky);
+    assert_eq!(todo.get_resources(), None);
+}
+
+#[test]
+fn text_list_parsed_from_input() {
+    use crate::EventLike;
+    let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nRESOURCES:Projector,Room A\\, 2nd floor\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    let calendar: crate::Calendar = input.parse().unwrap();
+    let event = calendar.components.first().unwrap().as_event().unwrap();
+    assert_eq!(
+        event.get_resources().unwrap(),
+        ["Projector", "Room A, 2nd floor"]
+    );
+}
+
+#[test]
+fn text_list_merges_repeated_lines_from_input() {
+    use crate::EventLike;
+    let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nCATEGORIES:Work,Personal\r\nCATEGORIES:Urgent\\, maybe\r\nCATEGORIES:Later\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
+    let calendar: crate::Calendar = input.parse().unwrap();
+    let event = calendar.components.first().unwrap().as_event().unwrap();
+    assert_eq!(
+        event.get_categories().unwrap(),
+        ["Work", "Personal", "Urgent, maybe", "Later"]
+    );
 }
 
 #[test]

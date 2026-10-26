@@ -25,11 +25,11 @@ recurrence = ["dep:rrule", "chrono-tz", "dep:thiserror"]
 
 [dependencies]
 serde = { version = "1.0.229", optional = true, features = ["derive"] }
-serde_json = { version = "1.0.151", optional = true }
-iso8601 = "0.6"
+serde_json = { version = "1.0.154", optional = true }
+iso8601 = "0.6.6"
 chrono-tz = { version = "0.10", optional = true }
 time = { version = "0.3.55", optional = true }
-thiserror = { version = "2.0.20", optional = true }
+thiserror = { version = "2.0.21", optional = true }
 
 [dependencies.chrono]
 version = "0.4.45"
@@ -50,14 +50,14 @@ optional = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.uuid]
 features = ["v4"]
-version = "1"
+version = "1.29"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.uuid]
 features = ["v4", "js"]
-version = "1"
+version = "1.29"
 
 [dev-dependencies]
-pretty_assertions = "1"
+pretty_assertions = "1.4.1"
 
 [package.metadata.docs.rs]
 all-features = true
@@ -86,6 +86,11 @@ required-features = ["parser", "serde", "serde_json"]
 name = "json_to_ical"
 path = "examples/json_to_ical.rs"
 required-features = ["parser", "serde", "serde_json"]
+
+[[example]]
+name = "categories"
+path = "examples/categories.rs"
+required-features = ["parser"]
 
 [[example]]
 name = "full_circle"

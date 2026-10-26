@@ -46,6 +46,7 @@ pub mod parser;
 mod properties;
 #[cfg(feature = "recurrence")]
 mod recurrence;
+mod text;
 mod value_types;
 
 pub use crate::{
