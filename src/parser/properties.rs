@@ -183,7 +183,7 @@ fn properties() {
 }
 
 #[test]
-fn unescape_text() {
+fn text_property_value_is_unescaped() {
     assert_eq!(
         "DESCRIPTION:https\\://example.com\n"
             .parse::<crate::Property>()
@@ -205,8 +205,7 @@ fn unescape_text() {
 
 #[test]
 fn text_roundtrip_is_lossless() {
-    // Serialize then parse must return the original TEXT value unchanged;
-    // `unescape_text` is the exact inverse of `escape_text`.
+    // Serialize then parse must return the original TEXT value unchanged.
     fn roundtrip(original: &str) -> String {
         let serialized: String = crate::Property::new("SUMMARY", original)
             .try_into()
@@ -253,16 +252,6 @@ fn text_list_values_keep_their_separators() {
     );
 }
 
-#[test]
-fn unescape_preserves_lenient_decodes() {
-    // `\N` is the RFC-5545 newline escape; `\:` and unknown escapes are
-    // non-standard producer output the parser has always accepted.
-    let decode = |raw: &str| raw.parse::<crate::Property>().unwrap().value().to_string();
-    assert_eq!(decode("DESCRIPTION:a\\:b\n"), "a:b");
-    assert_eq!(decode("DESCRIPTION:line\\Nbreak\n"), "line\nbreak");
-    // Unknown escape passes through verbatim, keeping the backslash.
-    assert_eq!(decode("DESCRIPTION:tab\\tend\n"), "tab\\tend");
-}
 
 #[test]
 fn property_escape_url_as_url() {

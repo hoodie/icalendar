@@ -162,15 +162,6 @@ impl Property {
         }
     }
 
-    /// <https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.11>
-    fn escape_text(input: &str) -> String {
-        input
-            .replace('\\', r#"\\"#)
-            .replace(',', r#"\,"#)
-            .replace(';', r#"\;"#)
-            .replace('\n', r#"\n"#)
-    }
-
     fn quote_special_chars(input: &str) -> String {
         // Already quoted (e.g. pre-quoted multi-value URI lists like
         // `"mailto:a@b.com","mailto:c@d.com"`): emit as-is to avoid
@@ -203,7 +194,7 @@ impl Property {
         let value_type = self.value_type();
         match value_type {
             Some(ValueType::Text) if !crate::value_types::is_text_list(&self.key) => {
-                write!(line, ":{}", Self::escape_text(&self.val))?
+                write!(line, ":{}", crate::text::escape_text(&self.val))?
             }
             _ => write!(line, ":{}", self.val)?,
         }
@@ -443,14 +434,6 @@ mod tests {
         let expected = "Content lines shouldn't be folded in the middle \
              of a UTF-8 character. 老\r\n 虎.";
         assert_eq!(expected, fold_line(line));
-    }
-
-    #[test]
-    fn escape_special_characters_in_text() {
-        let line = "\n\\;,:";
-
-        let expected = r"\n\\\;\,:";
-        assert_eq!(expected, Property::escape_text(line));
     }
 
     #[test]
