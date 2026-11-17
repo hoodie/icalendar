@@ -82,6 +82,40 @@ pub enum RecurrenceError {
     Rule(#[from] rrule::RRuleError),
 }
 
+#[cfg(test)]
+mod test_byday_union {
+    use crate::RRuleSet;
+
+    fn dates(rule: &str) -> Vec<String> {
+        let set: RRuleSet = format!("DTSTART:20260101T000000Z\nRRULE:{rule};COUNT=3")
+            .parse()
+            .unwrap();
+        set.all(3)
+            .dates
+            .iter()
+            .map(|date| date.format("%Y-%m-%d").to_string())
+            .collect()
+    }
+
+    #[test]
+    #[ignore = "upstream rrule 0.14 intersects plain and numbered BYDAY entries"]
+    fn mixed_plain_and_numbered_with_bymonthday() {
+        assert_eq!(
+            dates("FREQ=MONTHLY;BYDAY=TH,-2SA;BYMONTHDAY=30"),
+            ["2026-04-30", "2026-07-30", "2027-09-30"]
+        );
+    }
+
+    #[test]
+    #[ignore = "upstream rrule 0.14 intersects plain and numbered BYDAY entries"]
+    fn mixed_plain_and_numbered() {
+        assert_eq!(
+            dates("FREQ=MONTHLY;BYDAY=MO,1FR"),
+            ["2026-01-02", "2026-01-05", "2026-01-12"]
+        );
+    }
+}
+
 #[cfg(all(test, feature = "parser"))]
 mod test_recurrence_tzid {
     use crate::{
