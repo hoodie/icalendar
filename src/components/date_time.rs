@@ -23,8 +23,8 @@ pub(crate) fn format_utc_date_time(utc_dt: DateTime<Utc>) -> String {
 
 pub(crate) fn parse_duration(s: &str) -> Option<CalendarDuration> {
     iso8601::duration(s)
-        .map(Into::into)
-        .map(CalendarDuration)
+        .map(std::time::Duration::from)
+        .map(CalendarDuration::from)
         .ok()
 }
 
@@ -263,6 +263,49 @@ impl From<&DateTime<rrule::Tz>> for CalendarDateTime {
     }
 }
 
+#[cfg(feature = "jiff")]
+impl From<jiff::ZonedDateTime> for CalendarDateTime {
+    /// Converts a `jiff::ZonedDateTime` into a `CalendarDateTime`.
+    ///
+    /// If the time zone has a known IANA name, it is preserved as a `TZID` reference
+    /// ([`CalendarDateTime::WithTimezone`]). Otherwise (e.g. fixed-offset or POSIX-string time
+    /// zones), the instant is preserved but local-wall-clock framing is lost by falling back to
+    /// [`CalendarDateTime::Utc`].
+    fn from(value: jiff::ZonedDateTime) -> Self {
+        match value.time_zone().iana_name() {
+            Some(tzid) => CalendarDateTime::WithTimezone {
+                date_time: jiff_civil_datetime_to_naive(value.datetime()),
+                tzid: tzid.to_owned(),
+            },
+            None => CalendarDateTime::Utc(jiff_timestamp_to_utc(value.timestamp())),
+        }
+    }
+}
+
+#[cfg(feature = "jiff")]
+fn jiff_civil_datetime_to_naive(datetime: jiff::civil::DateTime) -> NaiveDateTime {
+    NaiveDate::from_ymd_opt(
+        datetime.year() as i32,
+        datetime.month() as u32,
+        datetime.day() as u32,
+    )
+    .and_then(|date| {
+        date.and_hms_nano_opt(
+            datetime.hour() as u32,
+            datetime.minute() as u32,
+            datetime.second() as u32,
+            datetime.subsec_nanosecond() as u32,
+        )
+    })
+    .expect("bug: invalid jiff civil datetime")
+}
+
+#[cfg(feature = "jiff")]
+fn jiff_timestamp_to_utc(timestamp: jiff::Timestamp) -> DateTime<Utc> {
+    DateTime::from_timestamp(timestamp.as_second(), timestamp.subsec_nanosecond() as u32)
+        .expect("bug: invalid jiff timestamp")
+}
+
 #[cfg(feature = "chrono-tz")]
 impl TryFrom<(NaiveDateTime, &str)> for CalendarDateTime {
     type Error = String;
@@ -379,13 +422,9 @@ impl From<CalendarDateTime> for DatePerhapsTime {
 }
 
 #[cfg(feature = "jiff")]
-impl From<jiff::Zoned> for DatePerhapsTime {
-    fn from(value: jiff::Zoned) -> Self {
-        CalendarDateTime::WithTimezone {
-            date_time: todo!(),
-            tzid: todo!(),
-        }
-        .into()
+impl From<jiff::ZonedDateTime> for DatePerhapsTime {
+    fn from(value: jiff::ZonedDateTime) -> Self {
+        CalendarDateTime::from(value).into()
     }
 }
 
@@ -512,16 +551,58 @@ impl TryFrom<&crate::parser::Property<'_>> for DatePerhapsTime {
     }
 }
 
-pub struct CalendarDuration(std::time::Duration);
+/// A `TRIGGER`/`DURATION`-style signed duration, agnostic of the datetime crate used to build it.
+///
+/// Internally backed by [`chrono::Duration`], with `From`/`TryFrom` conversions provided for
+/// [`std::time::Duration`] and, when the `jiff` feature is enabled, [`jiff::Span`] and
+/// [`jiff::SignedDuration`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CalendarDuration(chrono::Duration);
+
+impl std::fmt::Display for CalendarDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl std::ops::Neg for CalendarDuration {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self(-self.0)
+    }
+}
 
 impl From<chrono::Duration> for CalendarDuration {
     fn from(value: chrono::Duration) -> Self {
-        Self(value.to_std().unwrap())
+        Self(value)
     }
 }
+
 impl From<std::time::Duration> for CalendarDuration {
     fn from(value: std::time::Duration) -> Self {
-        Self(value)
+        Self(chrono::Duration::from_std(value).unwrap_or(chrono::Duration::MAX))
+    }
+}
+
+#[cfg(feature = "jiff")]
+impl From<jiff::SignedDuration> for CalendarDuration {
+    fn from(value: jiff::SignedDuration) -> Self {
+        Self(
+            chrono::Duration::seconds(value.as_secs())
+                + chrono::Duration::nanoseconds(value.subsec_nanos() as i64),
+        )
+    }
+}
+
+/// Fails if `value` carries calendar units (years, months, weeks, days) that can't be resolved
+/// to a fixed length without a reference date, e.g. `jiff::Span::new().months(1)`.
+#[cfg(feature = "jiff")]
+impl TryFrom<jiff::Span> for CalendarDuration {
+    type Error = jiff::Error;
+
+    fn try_from(value: jiff::Span) -> Result<Self, Self::Error> {
+        jiff::SignedDuration::try_from(value).map(CalendarDuration::from)
     }
 }
 

@@ -5,15 +5,15 @@ use jiff::ToSpan as _;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut calendar = Calendar::new();
 
-    let now = jiff::Zoned::now();
-    let soon = jiff::Zoned::now().checked_add(12.minutes())?;
-    let tomorrow = jiff::Zoned::now().checked_add(1.days())?;
+    let now = jiff::ZonedDateTime::now();
+    let soon = jiff::ZonedDateTime::now().checked_add(12.minutes())?;
+    let tomorrow = jiff::ZonedDateTime::now().checked_add(1.days())?;
 
     let todo_test_audio = Todo::new()
         .summary("TODO with audio alarm -15min")
         .sequence(1)
-        .starts(now)
-        .due(soon)
+        .starts(now.clone())
+        .due(soon.clone())
         .status(TodoStatus::NeedsAction)
         .percent_complete(98)
         .alarm(
@@ -40,7 +40,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let todo_test_display = Todo::new()
         .summary("TODO with display alarm now + 1 min")
         .sequence(3)
-        .starts(now)
+        .starts(now.clone())
         .due(soon)
         .status(TodoStatus::NeedsAction)
         .alarm(
@@ -55,11 +55,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let todo_taxes = Todo::new()
         .summary("Submit Income Taxes")
         .sequence(4)
-        .starts(now)
+        .starts(now.clone())
         .due(tomorrow)
         .status(TodoStatus::NeedsAction)
         .alarm(
-            Alarm::audio(now.checked_add(1.minute()))
+            Alarm::audio(now.checked_add(1.minute())?)
                 .duration_and_repeat(chrono::Duration::minutes(1), 4),
         )
         .done();

@@ -143,3 +143,8 @@ required-features = ["recurrence", "parser"]
 name = "recurrence_calendar_tz"
 path = "examples/recurrence_calendar_tz.rs"
 required-features = ["recurrence"]
+
+[[example]]
+name = "alarm-jiff"
+path = "examples/alarm-jiff.rs"
+required-features = ["jiff"]

@@ -1,6 +1,9 @@
 use chrono::Duration;
 use std::{fmt::Debug, str::FromStr};
 
+#[cfg(test)]
+use crate::components::date_time::CalendarDuration;
+
 pub use self::properties::{Related, Trigger};
 
 use self::properties::*;
@@ -242,14 +245,14 @@ fn test_audio() {
     assert_eq!(alarm.get_action(), Some(Action::Audio));
     assert_eq!(
         alarm.get_trigger(),
-        Some(Trigger::duration(
-            Duration::minutes(15),
+        Some(Trigger::Duration(
+            Duration::minutes(15).into(),
             Related::Start.into()
         ))
     );
     assert_eq!(
         alarm.get_trigger().unwrap().as_duration(),
-        Some(&Duration::minutes(15))
+        Some(&CalendarDuration::from(Duration::minutes(15)))
     );
     assert_eq!(alarm.get_trigger().unwrap().related(), Some(Related::Start));
     assert_eq!(alarm.get_repeat(), 3);
@@ -420,7 +423,7 @@ pub mod properties {
         /// # use chrono::*;
         /// assert_eq!(
         ///     Trigger::after_start(Duration::hours(1)),
-        ///     Trigger::Duration(Duration::hours(1), Some(Related::Start))
+        ///     Trigger::Duration(Duration::hours(1).into(), Some(Related::Start))
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
@@ -433,7 +436,7 @@ pub mod properties {
         /// # use chrono::*;
         /// assert_eq!(
         ///     Trigger::after_end(Duration::hours(1)),
-        ///     Trigger::Duration(Duration::hours(1), Some(Related::End))
+        ///     Trigger::Duration(Duration::hours(1).into(), Some(Related::End))
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
@@ -446,12 +449,12 @@ pub mod properties {
         /// # use chrono::*;
         /// assert_eq!(
         ///     Trigger::before_start(Duration::hours(1)),
-        ///     Trigger::Duration(-Duration::hours(1), Some(Related::Start))
+        ///     Trigger::Duration((-Duration::hours(1)).into(), Some(Related::Start))
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
         pub fn before_start(duration: impl Into<CalendarDuration>) -> Trigger {
-            Trigger::duration(-duration, Some(Related::Start))
+            Trigger::Duration(-duration.into(), Some(Related::Start))
         }
 
         /// ```
@@ -459,12 +462,12 @@ pub mod properties {
         /// # use chrono::*;
         /// assert_eq!(
         ///     Trigger::before_end(Duration::hours(1)),
-        ///     Trigger::Duration(-Duration::hours(1), Some(Related::End))
+        ///     Trigger::Duration((-Duration::hours(1)).into(), Some(Related::End))
         /// )
         /// ```
         /// please don't supply negative durations, you'll just confuse everybody
-        pub fn before_end(duration: Duration) -> Trigger {
-            Trigger::duration(-duration, Some(Related::End))
+        pub fn before_end(duration: impl Into<CalendarDuration>) -> Trigger {
+            Trigger::Duration(-duration.into(), Some(Related::End))
         }
 
         /// Returns the containing [`Related`] if the [`Trigger`] contains one
@@ -475,10 +478,10 @@ pub mod properties {
             }
         }
 
-        /// Returns the containing [`Duration`] if the [`Trigger`] contains one
-        pub fn as_duration(&self) -> Option<&Duration> {
+        /// Returns the containing [`CalendarDuration`] if the [`Trigger`] contains one
+        pub fn as_duration(&self) -> Option<&CalendarDuration> {
             match self {
-                Trigger::duration(duration, _) => Some(duration),
+                Trigger::Duration(duration, _) => Some(duration),
                 Trigger::DateTime(_) => None,
             }
         }
@@ -494,13 +497,18 @@ pub mod properties {
 
     impl From<Duration> for Trigger {
         fn from(duration: Duration) -> Self {
-            Trigger::duration(duration, None)
+            Trigger::Duration(duration.into(), None)
         }
     }
 
-    impl From<jiff::Span> for Trigger {
-        fn from(duration: jiff::Span) -> Self {
-            Trigger::Duration(duration, None)
+    /// Fails if `duration` carries calendar units (years, months, weeks, days) that can't be
+    /// resolved to a fixed length without a reference date.
+    #[cfg(feature = "jiff")]
+    impl TryFrom<jiff::Span> for Trigger {
+        type Error = jiff::Error;
+
+        fn try_from(duration: jiff::Span) -> Result<Self, Self::Error> {
+            Ok(Trigger::Duration(duration.try_into()?, None))
         }
     }
 
@@ -515,7 +523,7 @@ pub mod properties {
 
     impl From<(Duration, Related)> for Trigger {
         fn from((duration, related): (Duration, Related)) -> Self {
-            Trigger::Duration(duration, Some(related))
+            Trigger::Duration(duration.into(), Some(related))
         }
     }
 
@@ -623,7 +631,7 @@ pub mod properties {
 
         pretty_assertions::assert_eq!(
             alarm_with_rel_trigger.get_trigger(),
-            Some(Trigger::Duration(dur, None))
+            Some(Trigger::Duration(dur.into(), None))
         );
     }
 
@@ -637,7 +645,7 @@ pub mod properties {
         alarm_with_rel_start_trigger.print().unwrap();
         pretty_assertions::assert_eq!(
             alarm_with_rel_start_trigger.get_trigger(),
-            Some(Trigger::Duration(dur, Some(Related::Start)))
+            Some(Trigger::Duration(dur.into(), Some(Related::Start)))
         );
     }
 }
