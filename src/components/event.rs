@@ -31,7 +31,7 @@ impl Event {
 
     /// Gets the overall status or confirmation.
     pub fn get_status(&self) -> Option<EventStatus> {
-        EventStatus::from_str(self.property_value("STATUS")?)
+        self.property_value("STATUS")?.parse().ok()
     }
 
     //pub fn repeats<R:Repeater+?Sized>(&mut self, repeat: R) -> &mut Self {

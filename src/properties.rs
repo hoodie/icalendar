@@ -269,13 +269,16 @@ pub enum EventStatus {
     //Custom(&str)
 }
 
-impl EventStatus {
-    pub(crate) fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "TENTATIVE" => Some(Self::Tentative),
-            "CONFIRMED" => Some(Self::Confirmed),
-            "CANCELLED" => Some(Self::Cancelled),
-            _ => None,
+impl FromStr for EventStatus {
+    type Err = ();
+
+    /// Parses the RFC 5545 value, e.g. `"CANCELLED"`. Case-insensitive.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_uppercase().as_str() {
+            "TENTATIVE" => Ok(Self::Tentative),
+            "CONFIRMED" => Ok(Self::Confirmed),
+            "CANCELLED" => Ok(Self::Cancelled),
+            _ => Err(()),
         }
     }
 }
@@ -295,14 +298,17 @@ pub enum TodoStatus {
     //Custom(&str)
 }
 
-impl TodoStatus {
-    pub(crate) fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "NEEDS-ACTION" => Some(Self::NeedsAction),
-            "COMPLETED" => Some(Self::Completed),
-            "IN-PROCESS" => Some(Self::InProcess),
-            "CANCELLED" => Some(Self::Cancelled),
-            _ => None,
+impl FromStr for TodoStatus {
+    type Err = ();
+
+    /// Parses the RFC 5545 value, e.g. `"NEEDS-ACTION"`. Case-insensitive.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.trim().to_ascii_uppercase().as_str() {
+            "NEEDS-ACTION" => Ok(Self::NeedsAction),
+            "COMPLETED" => Ok(Self::Completed),
+            "IN-PROCESS" => Ok(Self::InProcess),
+            "CANCELLED" => Ok(Self::Cancelled),
+            _ => Err(()),
         }
     }
 }

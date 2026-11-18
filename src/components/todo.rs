@@ -96,7 +96,7 @@ impl Todo {
 
     /// Gets the overall status.
     pub fn get_status(&self) -> Option<TodoStatus> {
-        TodoStatus::from_str(self.property_value("STATUS")?)
+        self.property_value("STATUS")?.parse().ok()
     }
 
     //pub fn repeats<R:Repeater+?Sized>(&mut self, repeat: R) -> &mut Self {
