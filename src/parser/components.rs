@@ -1,6 +1,6 @@
 use std::{fmt, str::FromStr};
 
-use chrono::Utc;
+use jiff::Timestamp;
 use nom::{
     Finish, IResult, Parser,
     branch::alt,
@@ -76,7 +76,7 @@ pub(crate) trait LikeComponent<'a> {
                 .iter()
                 .any(|property| property.name == "DTSTAMP")
             {
-                let now = Utc::now();
+                let now = Timestamp::now();
                 write_crlf!(out, "DTSTAMP:{}", format_utc_date_time(now))?;
             }
 

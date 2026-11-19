@@ -1,20 +1,18 @@
-use chrono::*;
-#[cfg(feature = "chrono-tz")]
-use chrono_tz::Europe::Berlin;
 use icalendar::*;
+use jiff::{ToSpan as _, ZonedDateTime, civil::date};
 
-fn main() {
-    // lets create a calendar
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let now = ZonedDateTime::now(); // using a local now so the date arithmetic is done in the local timezone
     let my_calendar = Calendar::new()
         .name("example calendar")
+        .timezone("Europe/Berlin")
         .push(
-            // add an event
             Event::new()
                 .summary("test event")
                 .description("here I have something really important to do")
-                .starts(Utc::now())
+                .starts(now.datetime()) // we can use a floading time here since we have a global TZ for the whole calendar
                 .class(Class::Confidential)
-                .ends(Utc::now() + Duration::days(1))
+                .ends((now + 1.day()).datetime())
                 .append_property(
                     Property::new("TEST", "FOOBAR")
                         .add_parameter("IMPORTANCE", "very")
@@ -22,39 +20,25 @@ fn main() {
                 ),
         )
         .push(
-            // add a todo
             Todo::new()
                 .summary("groceries")
                 .description("Buy some milk"),
         )
         .push(
-            // add an all-day event
             Event::new()
-                .all_day(NaiveDate::from_ymd_opt(2016, 3, 15).unwrap())
+                .all_day(date(2016, 3, 15))
                 .summary("My Birthday")
                 .description("Hey, I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik"),
         )
         .push(
-            // local event with timezone
             Event::new()
-                .starts({
-                    #[cfg(feature = "chrono-tz")]
-                    {
-                        CalendarDateTime::from_ymd_hm_tzid(2023, 3, 15, 18, 45, Berlin).unwrap()
-                    }
-                    #[cfg(not(feature = "chrono-tz"))]
-                    {
-                        // probably not when you think
-                        NaiveDate::from_ymd_opt(2016, 3, 15)
-                            .unwrap()
-                            .and_hms_opt(18, 45, 0)
-                            .unwrap()
-                    }
-                })
+                // X-WR-TIMEZONE is a client hint; this time stays floating
+                .starts(date(2023, 3, 15).at(18, 45, 0, 0))
                 .summary("Birthday Party")
                 .description("I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik"),
         )
         .done();
 
     println!("{my_calendar}");
+    Ok(())
 }

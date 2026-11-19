@@ -1,4 +1,4 @@
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -12,13 +12,16 @@ use date_time::{format_utc_date_time, naive_date_to_property, parse_utc_date_tim
 
 pub mod alarm;
 pub(crate) mod date_time;
+pub(crate) mod duration;
 mod event;
 mod other;
 mod todo;
 mod venue;
 
 use alarm::*;
-use date_time::{CalendarDateTime, DatePerhapsTime};
+#[cfg(test)]
+use date_time::CalendarDateTime;
+use date_time::DatePerhapsTime;
 pub use event::*;
 pub use other::*;
 pub use todo::*;
@@ -115,7 +118,7 @@ pub trait Component {
         write_crlf!(out, "BEGIN:{}", self.component_kind())?;
 
         if !self.properties().contains_key("DTSTAMP") {
-            let now = Utc::now();
+            let now = Timestamp::now();
             write_crlf!(out, "DTSTAMP:{}", format_utc_date_time(now))?;
         }
 
@@ -189,7 +192,7 @@ pub trait Component {
     /// Set the [`DTSTAMP`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2) [`Property`]
     ///
     /// This must be a UTC date-time value.
-    fn timestamp(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    fn timestamp(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("DTSTAMP", format_utc_date_time(dt))
     }
 
@@ -199,7 +202,7 @@ pub trait Component {
     }
 
     /// Gets the [`DTSTAMP`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2) property.
-    fn get_timestamp(&self) -> Option<DateTime<Utc>> {
+    fn get_timestamp(&self) -> Option<Timestamp> {
         parse_utc_date_time(self.property_value("DTSTAMP")?)
     }
 
@@ -220,9 +223,10 @@ pub trait Component {
 
     /// Defines the relative priority.
     ///
-    /// Ranges from 0 to 10, larger values will be clamped to 10
+    /// Ranges from 0 to 10, larger values will be clamped to 9.
+    /// 9 is the lowest priority.
     fn priority(&mut self, priority: u32) -> &mut Self {
-        let priority = std::cmp::min(priority, 10);
+        let priority = std::cmp::min(priority, 9);
         self.add_property("PRIORITY", priority.to_string())
     }
 
@@ -359,7 +363,7 @@ pub trait Component {
     /// Set the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) [`Property`]
     ///
     /// This must be a UTC date-time value.
-    fn last_modified(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    fn last_modified(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("LAST-MODIFIED", format_utc_date_time(dt))
     }
 
@@ -369,14 +373,14 @@ pub trait Component {
     }
 
     /// Gets the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) property.
-    fn get_last_modified(&self) -> Option<DateTime<Utc>> {
+    fn get_last_modified(&self) -> Option<Timestamp> {
         parse_utc_date_time(self.property_value("LAST-MODIFIED")?)
     }
 
     /// Set the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) [`Property`]
     ///
     /// This must be a UTC date-time value.
-    fn created(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    fn created(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("CREATED", format_utc_date_time(dt))
     }
 
@@ -386,7 +390,7 @@ pub trait Component {
     }
 
     /// Gets the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) property.
-    fn get_created(&self) -> Option<DateTime<Utc>> {
+    fn get_created(&self) -> Option<Timestamp> {
         parse_utc_date_time(self.property_value("CREATED")?)
     }
 }
@@ -427,7 +431,8 @@ pub trait EventLike: Component {
 
     /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
     ///
-    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
+    /// See [`DatePerhapsTime`] for info how are different types converted automatically.
+    /// Accepted are [`jiff::civil::Date`], [`jiff::civil::DateTime`], [`jiff::Timestamp`] and [`jiff::ZonedDateTime`] inputs map to their ICS forms.
     fn starts<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt = dt.into();
         self.append_property(calendar_dt.to_property("DTSTART"))
@@ -440,7 +445,8 @@ pub trait EventLike: Component {
 
     /// Set the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
     ///
-    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
+    /// See [`DatePerhapsTime`] for info how are different types converted automatically.
+    /// Accepted are [`jiff::civil::Date`], [`jiff::civil::DateTime`], [`jiff::Timestamp`] and [`jiff::ZonedDateTime`] inputs map to their ICS forms.
     fn ends<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt = dt.into();
         self.append_property(calendar_dt.to_property("DTEND"))
@@ -454,7 +460,8 @@ pub trait EventLike: Component {
     /// Sets the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
     /// property.
     ///
-    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
+    /// See [`DatePerhapsTime`] for info how are different types converted automatically.
+    /// Accepted are [`jiff::civil::Date`], [`jiff::civil::DateTime`], [`jiff::Timestamp`] and [`jiff::ZonedDateTime`] inputs map to their ICS forms.
     fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt = dt.into();
         self.append_property(calendar_dt.to_property("RECURRENCE-ID"))
@@ -468,7 +475,7 @@ pub trait EventLike: Component {
     /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
     /// and [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`],
     /// date only
-    fn all_day(&mut self, date: NaiveDate) -> &mut Self {
+    fn all_day(&mut self, date: Date) -> &mut Self {
         self.append_property(naive_date_to_property(date, "DTSTART"))
             .append_property(naive_date_to_property(date, "DTEND"))
     }
@@ -619,7 +626,7 @@ component_impl! { Alarm, String::from("VALARM") }
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
+    use jiff::{civil::date, tz::TimeZone};
 
     use super::*;
 
@@ -727,10 +734,7 @@ mod tests {
 
     #[test]
     fn get_date_times_naive() {
-        let naive_date_time = NaiveDate::from_ymd_opt(2001, 3, 13)
-            .unwrap()
-            .and_hms_opt(14, 15, 16)
-            .unwrap();
+        let naive_date_time = date(2001, 3, 13).at(14, 15, 16, 0);
         let event = Event::new()
             .starts(naive_date_time)
             .ends(naive_date_time)
@@ -741,7 +745,11 @@ mod tests {
 
     #[test]
     fn get_date_times_utc() {
-        let utc_date_time = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let utc_date_time = date(2001, 3, 13)
+            .at(14, 15, 16, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
         let event = Event::new()
             .timestamp(utc_date_time)
             .last_modified(utc_date_time)
@@ -758,10 +766,7 @@ mod tests {
 
     #[test]
     fn get_date_times_tzid() {
-        let date_time = NaiveDate::from_ymd_opt(2001, 3, 13)
-            .unwrap()
-            .and_hms_opt(14, 15, 16)
-            .unwrap();
+        let date_time = date(2001, 3, 13).at(14, 15, 16, 0);
         let date_time_tzid = CalendarDateTime::WithTimezone {
             date_time,
             tzid: "Pacific/Auckland".to_string(),
@@ -776,7 +781,7 @@ mod tests {
 
     #[test]
     fn get_dates_naive() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let event = Event::new().starts(naive_date).ends(naive_date).done();
         assert_eq!(event.get_start(), Some(naive_date.into()));
         assert_eq!(event.get_end(), Some(naive_date.into()));
@@ -784,7 +789,7 @@ mod tests {
 
     #[test]
     fn exdate_accepts_naive_date() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let event = Event::new().exdate(naive_date).done();
 
         let exdates = event.multi_properties().get("EXDATE").unwrap();
@@ -800,7 +805,7 @@ mod tests {
 
     #[test]
     fn rdate_accepts_naive_date() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let event = Event::new().rdate(naive_date).done();
 
         let rdates = event.multi_properties().get("RDATE").unwrap();

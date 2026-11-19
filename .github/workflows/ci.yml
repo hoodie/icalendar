@@ -43,29 +43,27 @@ jobs:
       - name: cargo check --all-features (minimal versions)
         run: cargo check --all-features
 
-
   test:
     name: cargo-test
     runs-on: ubuntu-latest
     strategy:
       matrix:
         features:
-          - ""  # no features
-          - "parser"  # default feature
-          - "parser,strict-dates"  # parser variant
-          - "parser,serde_json"  # serde_json implies serde
-          - "parser,chrono-tz"
-          - "parser,time"
-          - "chrono-tz"  # works without parser
-          - "time"  # works without parser
-          - "parser,serde_json,chrono-tz,time"  # all features combined
+          - "" # no features
+          - "parser" # default feature
+          - "parser,strict-dates" # parser variant
+          - "parser,serde_json" # serde_json implies serde
+          - "parser,serde_json,strict-dates" # all features combined
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
+      - uses: taiki-e/install-action@nextest
       - name: test with features (${{ matrix.features }})
-        run: cargo test --no-default-features --features "${{ matrix.features }}"
+        run: cargo nextest run --no-default-features --features "${{ matrix.features }}"
+      - name: doctests
+        run: cargo test --doc --no-default-features --features "${{ matrix.features }}"
 
   fmtclippy:
     runs-on: ubuntu-latest

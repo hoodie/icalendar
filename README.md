@@ -29,8 +29,11 @@ Use the builder-pattern to assemble the full calendar or event by event.
 Display printing produces the rfc5545 format.
 
 ```rust
-use icalendar::{Calendar, CalendarDateTime, Class, Component, Event, EventLike, Property, Todo};
-use chrono::{Duration, NaiveDate, NaiveTime, Utc};
+# fn main() -> Result<(), Box<dyn std::error::Error>> {
+use icalendar::{Calendar, Class, Component, Event, EventLike, Property, Todo};
+use jiff::{Timestamp, ToSpan as _, civil::date};
+
+let now = Timestamp::now();
 
 // let's create a calendar
 let my_calendar = Calendar::new()
@@ -40,9 +43,9 @@ let my_calendar = Calendar::new()
         Event::new()
             .summary("test event")
             .description("here I have something really important to do")
-            .starts(Utc::now())
+            .starts(now)
             .class(Class::Confidential)
-            .ends(Utc::now() + Duration::days(1))
+            .ends(now + 24.hours())
             .append_property(
                 Property::new("TEST", "FOOBAR")
                     .add_parameter("IMPORTANCE", "very")
@@ -58,25 +61,22 @@ let my_calendar = Calendar::new()
     .push(
         // add an all-day event
         Event::new()
-            .all_day(NaiveDate::from_ymd_opt(2016, 3, 15).unwrap())
+            .all_day(date(2016, 3, 15))
             .summary("My Birthday")
             .description("Hey, I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik")
     )
     .push(
         // event with utc timezone
         Event::new()
-            .starts(CalendarDateTime::from(
-                NaiveDate::from_ymd_opt(2024, 10, 24).unwrap()
-                    .and_time(NaiveTime::from_hms_opt(20, 10, 00).unwrap())
-                    .and_utc()
-            ))
+            .starts(date(2024, 10, 24).at(20, 10, 0, 0).in_tz("UTC")?.timestamp())
             .summary("Birthday Party")
             .description("I'm gonna have a party\nBYOB: Bring your own beer.\nHendrik")
     )
     .done();
 
 println!("{}", my_calendar);
-
+Ok(())
+# }
 ```
 
 ### Removing Properties from Components
@@ -85,13 +85,13 @@ You can remove properties from components when you need to update their state:
 
 ```rust
 use icalendar::{Calendar, Component, Event, EventStatus, Todo, TodoStatus};
-use chrono::Utc;
+use jiff::Timestamp;
 
 // Create a completed todo
 let mut todo = Todo::new();
 todo
     .summary("Buy milk")
-    .completed(Utc::now())
+    .completed(Timestamp::now())
     .percent_complete(100)
     .status(TodoStatus::Completed);
 
@@ -135,10 +135,19 @@ for event in parsed_calendar.events() {
 
 A [`Calendar`] represents a full calendar, which contains multiple [`Component`]s. These may be either [`Event`]s, [`Todo`]s, or [`Venue`]s. Components in turn have [`Property`]s, which may have [`Parameter`]s.
 
-## `RRule` Support
+## Recurrence properties
 
-Thanks to the [`rrule`](https://crates.io/crates/rrule) crate and [friendly community contribution](https://github.com/hoodie/icalendar/pull/128), you can also add recurrence rules to your events and todos. See the documentation for `Event::recurrence` and `Todo::recurrence` for details.
-We currently reexport a select subset of `rrule` types. Should you experience compatibility issues because the maintainer (me) has not yet updated `icalendar` to reexport the latest `rrule` version, please feel free to open a PR.
+Calendars can still parse and emit `RRULE`, `RDATE`, `EXDATE`, and `RECURRENCE-ID` properties. Use `add_property("RRULE", "FREQ=DAILY;COUNT=4")` for a raw rule, and `rdate()`, `exdate()`, and `recurrence_id()` for the other values. Typed rule construction and occurrence expansion are not available; use an external engine if you need expansion.
+
+## Migrating to Jiff
+
+Add `jiff = "1"` to your application: this crate does not re-export Jiff. Pass `civil::Date` for `VALUE=DATE`, `civil::DateTime` for a floating local time, `Timestamp` for UTC, or a named `ZonedDateTime` for a local time with `TZID`. For example, `date(2026, 3, 15).at(18, 45, 0, 0).in_tz("Europe/Berlin")?` can be passed to `starts()`. Parsed custom `TZID` values are retained even if they cannot be resolved locally.
+
+Use `CalendarDateTime::to_zoned_datetime()` for a known `TZID`, or `DatePerhapsTime::to_zoned_datetime(&zone)` for floating and date-only values. `Calendar::calendar_events()` and `calendar_todos()` provide resolved accessors using `X-WR-TIMEZONE` when those values need a calendar zone. Resolution defaults to Jiff's `Compatible` gap/fold policy; pass `Disambiguation::Reject` to a `_with` variant to reject ambiguity. A floating value remains floating on the wire even when the calendar has `X-WR-TIMEZONE`.
+
+The migration table, breaking changes, and current limitations are in the [Unreleased changelog](CHANGELOG.md#unreleased). In particular, `all_day()` does not yet produce an exclusive end date, and resolved event `end()` does not yet calculate `DTSTART + DURATION`.
+
+Browser WASM applications using Jiff's clock or system timezone should enable `jiff/js` in their own dependency. This crate does not enable it by default. Named-zone lookup also depends on available timezone data; check the target runtime, especially on minimal containers, Windows and WASM.
 
 ## Contributing
 

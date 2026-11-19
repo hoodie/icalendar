@@ -62,7 +62,4 @@ pub use crate::{
     value_types::ValueType,
 };
 
-#[cfg(feature = "chrono-tz")]
-pub use crate::components::date_time::ymd_hm_tzid;
-
 // TODO Calendar TimeZone VTIMEZONE STANDARD DAYLIGHT (see thunderbird exports)

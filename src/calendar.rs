@@ -1,4 +1,5 @@
-use chrono::Duration;
+use crate::components::duration::{format_duration, parse_duration};
+use jiff::Span;
 use std::{fmt, mem, ops::Deref};
 
 use crate::{Parameter, Property, components::*};
@@ -7,7 +8,6 @@ use crate::{Parameter, Property, components::*};
 ///
 /// Implemented for:
 /// - `&str` and `String` — any IANA timezone name (not validated at compile time)
-/// - `chrono_tz::Tz` — compile-time validated (requires the `chrono-tz` feature)
 ///
 /// This trait is sealed; you cannot implement it for your own types.
 pub trait IntoTimezoneId: private::Sealed {
@@ -19,8 +19,6 @@ mod private {
     pub trait Sealed {}
     impl Sealed for &str {}
     impl Sealed for String {}
-    #[cfg(feature = "chrono-tz")]
-    impl Sealed for chrono_tz::Tz {}
 }
 
 impl IntoTimezoneId for &str {
@@ -32,13 +30,6 @@ impl IntoTimezoneId for &str {
 impl IntoTimezoneId for String {
     fn into_timezone_id(self) -> String {
         self
-    }
-}
-
-#[cfg(feature = "chrono-tz")]
-impl IntoTimezoneId for chrono_tz::Tz {
-    fn into_timezone_id(self) -> String {
-        self.name().to_owned()
     }
 }
 
@@ -228,15 +219,7 @@ impl Calendar {
 
     /// Set the `X-WR-TIMEZONE` property (the calendar's default timezone).
     ///
-    /// Accepts a plain IANA string or, with the `chrono-tz` feature, a `chrono_tz::Tz`
-    /// value. Plain strings are stored as-is without validation; if you pass an invalid
-    /// timezone name the calendar will serialise incorrectly. Use `chrono_tz::Tz` for
-    /// compile-time safety.
-    ///
-    /// # Deprecation notice
-    ///
-    /// String support will be removed in a future version. Migrate to `chrono_tz::Tz`
-    /// (enable the `chrono-tz` feature) to avoid a breaking change.
+    /// Strings are stored as-is to preserve custom TZIDs.
     ///
     /// ```
     /// # use icalendar::Calendar;
@@ -257,31 +240,35 @@ impl Calendar {
         self.property_value("X-WR-TIMEZONE")
     }
 
-    /// Set the `REFRESH-INTERVAL` and `X-PUBLISHED-TTL` `Property`s
-    pub fn ttl(&mut self, duration: &Duration) -> &mut Self {
-        let duration_string = duration.to_string();
+    /// Set `REFRESH-INTERVAL` and `X-PUBLISHED-TTL` if the duration is valid.
+    pub fn ttl<D: TryInto<Span>>(&mut self, duration: D) -> Result<&mut Self, String>
+    where
+        D::Error: fmt::Display,
+    {
+        let duration = duration.try_into().map_err(|error| error.to_string())?;
+        let duration_string = format_duration(duration)?;
+        if !duration.is_positive() {
+            return Err("TTL must be positive".into());
+        }
         self.append_property(
             Property::new("REFRESH-INTERVAL", &duration_string)
                 .append_parameter(Parameter::new("VALUE", "DURATION"))
                 .done(),
         );
         self.append_property(Property::new("X-PUBLISHED-TTL", &duration_string));
-        self
+        Ok(self)
     }
 
     /// Gets the value of the `REFRESH-INTERVAL` or `X-PUBLISHED-TTL` property.
-    pub fn get_ttl(&self) -> Option<Duration> {
+    pub fn get_ttl(&self) -> Option<Span> {
         self.property_value("REFRESH-INTERVAL")
-            .and_then(|refresh_interval| iso8601::duration(refresh_interval).ok())
+            .and_then(parse_duration)
+            .filter(Span::is_positive)
             .or_else(|| {
                 self.property_value("X-PUBLISHED-TTL")
-                    .and_then(|published_ttl| iso8601::duration(published_ttl).ok())
+                    .and_then(parse_duration)
+                    .filter(Span::is_positive)
             })
-            .map(std::time::Duration::from)
-            .map(Duration::from_std)
-            .transpose()
-            .ok()
-            .flatten()
     }
 
     /// End of builder pattern.
@@ -511,6 +498,36 @@ fn from_adds_default_properties() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::{SignedDuration, ToSpan as _};
+
+    #[test]
+    fn ttl_rejects_invalid_durations_without_changing_properties() {
+        let mut calendar = Calendar::new();
+        calendar.ttl(1.day()).unwrap();
+        let properties = calendar.properties.clone();
+        for duration in [1.month(), 1.millisecond(), -1.hour(), 0.seconds()] {
+            assert!(calendar.ttl(duration).is_err(), "{duration}");
+            assert_eq!(calendar.properties, properties);
+        }
+    }
+
+    #[test]
+    fn ttl_uses_strict_icalendar_durations() {
+        let mut calendar = Calendar::new();
+        calendar.ttl(1.day()).unwrap();
+        assert_eq!(calendar.get_ttl().unwrap().fieldwise(), 1.day().fieldwise());
+        assert_eq!(calendar.property_value("REFRESH-INTERVAL"), Some("P1D"));
+        let mut signed = Calendar::new();
+        signed.try_ttl(SignedDuration::from_hours(24)).unwrap();
+        assert_eq!(signed.property_value("REFRESH-INTERVAL"), Some("PT86400S"));
+        assert!(signed.try_ttl(1.month()).is_err());
+        assert!(signed.try_ttl(-1.hour()).is_err());
+        assert!(signed.try_ttl(0.seconds()).is_err());
+        assert_eq!(signed.property_value("REFRESH-INTERVAL"), Some("PT86400S"));
+        let mut invalid = Calendar::new();
+        invalid.append_property(Property::new("REFRESH-INTERVAL", "P1W2D"));
+        assert!(invalid.get_ttl().is_none());
+    }
 
     #[test]
     fn calendar_extend_components() {
@@ -553,13 +570,6 @@ mod tests {
     #[test]
     fn timezone_accepts_str() {
         let calendar = Calendar::new().timezone("Europe/Berlin").done();
-        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
-    }
-
-    #[test]
-    #[cfg(feature = "chrono-tz")]
-    fn timezone_accepts_chrono_tz() {
-        let calendar = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
         assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
     }
 

@@ -1,449 +1,365 @@
 use std::str::FromStr;
 
-use chrono::{DateTime, Duration, NaiveDate, NaiveDateTime, TimeZone as _, Utc};
+use jiff::{
+    Timestamp, ZonedDateTime, civil,
+    tz::{Disambiguation, TimeZone},
+};
 
 use crate::{Property, ValueType};
 
-const NAIVE_DATE_TIME_FORMAT: &str = "%Y%m%dT%H%M%S";
-const UTC_DATE_TIME_FORMAT: &str = "%Y%m%dT%H%M%SZ";
-const NAIVE_DATE_FORMAT: &str = "%Y%m%d";
-
-// #[deprecated(note = "use `CalendarDateTime::from_str` if you can")]
-pub(crate) fn parse_utc_date_time(s: &str) -> Option<DateTime<Utc>> {
-    Utc.datetime_from_str(s, UTC_DATE_TIME_FORMAT).ok()
+fn digits(value: &str) -> bool {
+    value.bytes().all(|byte| byte.is_ascii_digit())
 }
 
-pub(crate) fn parse_naive_date_time(s: &str) -> Option<NaiveDateTime> {
-    NaiveDateTime::parse_from_str(s, NAIVE_DATE_TIME_FORMAT).ok()
+pub(crate) fn parse_date(value: &str) -> Option<civil::Date> {
+    if value.len() != 8 || !digits(value) {
+        return None;
+    }
+    let date = civil::Date::strptime("%Y%m%d", value).ok()?;
+    (date.year() > 0 && format_date(date) == value).then_some(date)
 }
 
-pub(crate) fn format_utc_date_time(utc_dt: DateTime<Utc>) -> String {
-    utc_dt.format(UTC_DATE_TIME_FORMAT).to_string()
+fn format_date(date: civil::Date) -> String {
+    assert!(
+        date.year() > 0,
+        "iCalendar dates require a four-digit positive year"
+    );
+    date.strftime("%Y%m%d").to_string()
 }
 
-pub(crate) fn parse_duration(s: &str) -> Option<Duration> {
-    iso8601::duration(s)
-        .ok()
-        .and_then(|iso| Duration::from_std(iso.into()).ok())
+pub(crate) fn parse_naive_date_time(value: &str) -> Option<civil::DateTime> {
+    if value.len() != 15
+        || value.as_bytes().get(8) != Some(&b'T')
+        || !digits(value.get(..8)?)
+        || !digits(value.get(9..)?)
+        || value.get(13..15)?.parse::<u8>().ok()? > 59
+    {
+        return None;
+    }
+    let date_time = civil::DateTime::strptime("%Y%m%dT%H%M%S", value).ok()?;
+    (date_time.year() > 0 && format_naive_date_time(date_time) == value).then_some(date_time)
 }
 
-pub(crate) fn naive_date_to_property(date: NaiveDate, key: &str) -> Property {
-    Property::new(key, date.format(NAIVE_DATE_FORMAT).to_string())
+fn format_naive_date_time(value: civil::DateTime) -> String {
+    assert!(
+        value.year() > 0,
+        "iCalendar dates require a four-digit positive year"
+    );
+    value.strftime("%Y%m%dT%H%M%S").to_string()
+}
+
+pub(crate) fn parse_utc_date_time(value: &str) -> Option<Timestamp> {
+    let naive = parse_naive_date_time(value.strip_suffix('Z')?)?;
+    Some(naive.to_zoned_datetime(TimeZone::UTC).ok()?.timestamp())
+}
+
+pub(crate) fn format_utc_date_time(value: Timestamp) -> String {
+    format!(
+        "{}Z",
+        format_naive_date_time(value.to_zoned_datetime(TimeZone::UTC).datetime())
+    )
+}
+
+pub(crate) fn naive_date_to_property(date: civil::Date, key: &str) -> Property {
+    Property::new(key, format_date(date))
         .append_parameter(ValueType::Date)
         .done()
 }
 
-/// Representation of various forms of `DATE-TIME` per
-/// [RFC 5545, Section 3.3.5](https://tools.ietf.org/html/rfc5545#section-3.3.5)
+/// Representation of the `DATE-TIME` forms in
+/// [RFC 5545, Section 3.3.5](https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.5)
 ///
-/// Conversions from [chrono] types are provided in form of [From] implementations, see
-/// documentation of individual variants.
+/// Conversions from Jiff types are provided through [`From`] implementations
 ///
-/// In addition to readily implemented `FORM #1` and `FORM #2`, the RFC also specifies
-/// `FORM #3: DATE WITH LOCAL TIME AND TIME ZONE REFERENCE`. This variant is not yet implemented.
-/// Adding it will require adding support for `VTIMEZONE` and referencing it using `TZID`.
+/// All three RFC forms are supported. Parsing preserves `TZID` values as written,
+/// but does not resolve them against `VTIMEZONE` definitions in the calendar
+/// `try_into_utc` resolves only time zones known to Jiff
+///
+/// Subseconds are dropped on serialization
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CalendarDateTime {
-    /// `FORM #1: DATE WITH LOCAL TIME`: floating, follows current time-zone of the attendee.
+    /// `FORM #1: DATE WITH LOCAL TIME`: floating, follows the attendee's current time zone
     ///
-    /// Conversion from [`chrono::NaiveDateTime`] results in this variant.
-    ///
-    /// ## Note
-    /// finding this in a calendar is a red flag, datetimes should end in `'Z'` for `UTC` or have a `TZID` property
-    Floating(NaiveDateTime),
+    /// Conversion from [`civil::DateTime`] results in this variant
+    /// No `Z` suffix or `TZID`, so the instant depends on the attendee's time zone
+    Floating(civil::DateTime),
 
-    /// `FORM #2: DATE WITH UTC TIME`: rendered with Z suffix character.
+    /// `FORM #2: DATE WITH UTC TIME`: rendered with a `Z` suffix
     ///
-    /// Conversion from [`chrono::DateTime<Utc>`](DateTime) results in this variant. Use
-    /// `date_time.with_timezone(&Utc)` to convert `date_time` from arbitrary time zone to UTC.
-    Utc(DateTime<Utc>),
+    /// Conversion from [`Timestamp`] results in this variant
+    Utc(Timestamp),
 
-    /// `FORM #3: DATE WITH LOCAL TIME AND TIME ZONE REFERENCE`: refers to a time zone definition.
+    /// `FORM #3: DATE WITH LOCAL TIME AND TIME ZONE REFERENCE`: refers to a time zone by `TZID`
+    ///
+    /// Conversion from [`ZonedDateTime`] with an IANA zone results in this variant,
+    /// except for the later occurrence in a DST fold, which uses [`Utc`](Self::Utc)
     WithTimezone {
-        /// The date and time in the given time zone.
-        date_time: NaiveDateTime,
-        /// The ID of the time zone definition in a VTIMEZONE calendar component.
+        /// The date and time in the given time zone
+        date_time: civil::DateTime,
+        /// The ID of the referenced time zone, possibly a `VTIMEZONE` definition
         tzid: String,
     },
 }
 
 impl CalendarDateTime {
-    /// this is not actually now, just a fixed date for testing
+    /// Fixed date for testing, not the current time
     #[cfg(test)]
     pub(crate) fn now() -> Self {
-        NaiveDate::from_ymd_opt(2015, 10, 26)
+        civil::date(2015, 10, 26)
+            .at(1, 22, 0, 0)
+            .to_zoned_datetime(TimeZone::UTC)
             .unwrap()
-            .and_hms_opt(1, 22, 00)
-            .unwrap()
+            .timestamp()
             .into()
     }
 
     pub(crate) fn from_property(property: &Property) -> Option<Self> {
         let value = property.value();
         if let Some(tzid) = property.params().get("TZID") {
-            Some(Self::WithTimezone {
-                date_time: NaiveDateTime::parse_from_str(value, NAIVE_DATE_TIME_FORMAT).ok()?,
+            if tzid.value().is_empty() {
+                return None;
+            }
+            return Some(Self::WithTimezone {
+                date_time: parse_naive_date_time(value)?,
                 tzid: tzid.value().to_owned(),
-            })
-        } else if let Ok(naive_date_time) =
-            NaiveDateTime::parse_from_str(value, NAIVE_DATE_TIME_FORMAT)
-        {
-            Some(naive_date_time.into())
-        } else {
-            Self::from_str(value).ok()
+            });
         }
+        value.parse().ok()
     }
 
     pub(crate) fn to_property(&self, key: &str) -> Property {
         match self {
-            CalendarDateTime::Floating(naive_dt) => {
-                Property::new(key, naive_dt.format(NAIVE_DATE_TIME_FORMAT).to_string())
-            }
-            CalendarDateTime::Utc(utc_dt) => Property::new(key, format_utc_date_time(*utc_dt)),
-            CalendarDateTime::WithTimezone { date_time, tzid } => {
-                Property::new(key, date_time.format(NAIVE_DATE_TIME_FORMAT).to_string())
+            Self::Floating(date_time) => Property::new(key, format_naive_date_time(*date_time)),
+            Self::Utc(timestamp) => Property::new(key, format_utc_date_time(*timestamp)),
+            Self::WithTimezone { date_time, tzid } => {
+                Property::new(key, format_naive_date_time(*date_time))
                     .add_parameter("TZID", tzid)
                     .done()
             }
         }
     }
 
-    pub(crate) fn from_utc_string(s: &str) -> Option<Self> {
-        parse_utc_date_time(s).map(CalendarDateTime::Utc)
+    pub(crate) fn from_utc_string(value: &str) -> Option<Self> {
+        parse_utc_date_time(value).map(Self::Utc)
     }
 
-    pub(crate) fn from_naive_string(s: &str) -> Option<Self> {
-        parse_naive_date_time(s).map(CalendarDateTime::Floating)
+    pub(crate) fn from_naive_string(value: &str) -> Option<Self> {
+        parse_naive_date_time(value).map(Self::Floating)
     }
 
-    /// attempts to convert the into UTC
-    #[cfg(feature = "chrono-tz")]
-    pub fn try_into_utc(&self) -> Option<DateTime<Utc>> {
+    /// Resolve a TZID with Jiff's compatible gap and fold policy
+    /// Floating times and unknown zones return `None`
+    pub fn try_into_utc(&self) -> Option<Timestamp> {
+        self.try_into_utc_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve a TZID with the given ambiguity policy
+    pub fn try_into_utc_with(&self, disambiguation: Disambiguation) -> Option<Timestamp> {
         match self {
-            CalendarDateTime::Floating(_) => None, // we shouldn't guess here
-            CalendarDateTime::Utc(inner) => Some(*inner),
-            CalendarDateTime::WithTimezone { date_time, tzid } => tzid
-                .parse::<chrono_tz::Tz>()
+            Self::Floating(_) => None,
+            Self::Utc(value) => Some(*value),
+            Self::WithTimezone { date_time, tzid } => TimeZone::get(tzid)
+                .ok()?
+                .to_ambiguous_zoned_datetime(*date_time)
+                .disambiguate(disambiguation)
                 .ok()
-                .and_then(|tz| tz.from_local_datetime(date_time).single())
-                .map(|tz| tz.with_timezone(&Utc)),
+                .map(|value| value.timestamp()),
         }
     }
+}
 
-    /// TODO: make public or delete
-    #[cfg(feature = "chrono-tz")]
-    #[allow(dead_code)]
-    pub(crate) fn with_timezone(dt: NaiveDateTime, tz_id: chrono_tz::Tz) -> Self {
+impl From<Timestamp> for CalendarDateTime {
+    fn from(value: Timestamp) -> Self {
+        Self::Utc(value)
+    }
+}
+
+impl From<&Timestamp> for CalendarDateTime {
+    fn from(value: &Timestamp) -> Self {
+        Self::Utc(*value)
+    }
+}
+
+impl From<civil::DateTime> for CalendarDateTime {
+    fn from(value: civil::DateTime) -> Self {
+        Self::Floating(value)
+    }
+}
+
+impl From<&civil::DateTime> for CalendarDateTime {
+    fn from(value: &civil::DateTime) -> Self {
+        Self::Floating(*value)
+    }
+}
+
+impl From<&ZonedDateTime> for CalendarDateTime {
+    fn from(value: &ZonedDateTime) -> Self {
+        let Some(tzid) = value.time_zone().iana_name() else {
+            return Self::Utc(value.timestamp());
+        };
+        let local = value.datetime();
+        let first = value
+            .time_zone()
+            .to_ambiguous_zoned_datetime(local)
+            .compatible();
+        if first.is_ok_and(|first| first.timestamp() != value.timestamp()) {
+            return Self::Utc(value.timestamp());
+        }
         Self::WithTimezone {
-            date_time: dt,
-            tzid: tz_id.name().to_owned(),
-        }
-    }
-
-    /// will return [`None`] if date is not valid
-    #[cfg(feature = "chrono-tz")]
-    pub fn from_ymd_hm_tzid(
-        year: i32,
-        month: u32,
-        day: u32,
-        hour: u32,
-        min: u32,
-        tz_id: chrono_tz::Tz,
-    ) -> Option<Self> {
-        NaiveDate::from_ymd_opt(year, month, day)
-            .and_then(|date| date.and_hms_opt(hour, min, 0))
-            .zip(Some(tz_id))
-            .map(|(dt, tz)| Self::with_timezone(dt, tz))
-    }
-
-    /// Create a new instance with the given timezone
-    #[cfg(feature = "chrono-tz")]
-    pub fn from_date_time<TZ: chrono::TimeZone<Offset = O>, O: chrono_tz::OffsetName>(
-        dt: DateTime<TZ>,
-    ) -> Self {
-        Self::WithTimezone {
-            date_time: dt.naive_local(),
-            tzid: dt.offset().tz_id().to_owned(),
-        }
-    }
-
-    /// Create a new instance with the given timezone
-    #[cfg(feature = "chrono-tz")]
-    pub fn as_dt_with_tz(self) -> Option<DateTime<chrono_tz::Tz>> {
-        if let Self::WithTimezone { date_time, tzid } = self {
-            let date = date_time
-                .and_local_timezone(tzid.parse::<chrono_tz::Tz>().ok().unwrap())
-                .single()
-                .unwrap();
-            Some(date)
-        } else {
-            None
+            date_time: local,
+            tzid: tzid.to_owned(),
         }
     }
 }
 
-/// will return [`None`] if date is not valid
-#[cfg(feature = "chrono-tz")]
-pub fn ymd_hm_tzid(
-    year: i32,
-    month: u32,
-    day: u32,
-    hour: u32,
-    min: u32,
-    tz_id: chrono_tz::Tz,
-) -> Option<CalendarDateTime> {
-    CalendarDateTime::from_ymd_hm_tzid(year, month, day, hour, min, tz_id)
-}
-
-/// Converts from time zone-aware UTC date-time to [`CalendarDateTime::Utc`].
-impl From<DateTime<Utc>> for CalendarDateTime {
-    fn from(dt: DateTime<Utc>) -> Self {
-        Self::Utc(dt)
-    }
-}
-
-// impl<TZ: chrono::TimeZone<Offset = O>, O: chrono_tz::OffsetName> From<DateTime<TZ>>
-//     for CalendarDateTime
-// {
-//     fn from(date_time: DateTime<TZ>) -> Self {
-//         CalendarDateTime::WithTimezone {
-//             date_time: date_time.naive_local(),
-//             tzid: date_time.offset().tz_id().to_owned(),
-//         }
-//     }
-// }
-
-/// Converts from time zone-less date-time to [`CalendarDateTime::Floating`].
-impl From<NaiveDateTime> for CalendarDateTime {
-    fn from(dt: NaiveDateTime) -> Self {
-        Self::Floating(dt)
-    }
-}
-
-#[cfg(feature = "chrono-tz")]
-impl From<(NaiveDateTime, chrono_tz::Tz)> for CalendarDateTime {
-    fn from((date_time, tzid): (NaiveDateTime, chrono_tz::Tz)) -> Self {
-        Self::WithTimezone {
-            date_time,
-            tzid: tzid.name().into(),
-        }
-    }
-}
-
-#[cfg(feature = "chrono-tz")]
-impl From<&DateTime<chrono_tz::Tz>> for CalendarDateTime {
-    fn from(dt: &DateTime<chrono_tz::Tz>) -> CalendarDateTime {
-        let tz = dt.timezone();
-        if tz == chrono_tz::UTC {
-            CalendarDateTime::Utc(dt.with_timezone(&Utc))
-        } else {
-            CalendarDateTime::WithTimezone {
-                date_time: dt.naive_local(),
-                tzid: tz.to_string(),
-            }
-        }
-    }
-}
-
-#[cfg(feature = "chrono-tz")]
-impl TryFrom<(NaiveDateTime, &str)> for CalendarDateTime {
-    type Error = String;
-
-    fn try_from((dt, maybe_tz): (NaiveDateTime, &str)) -> Result<Self, Self::Error> {
-        let tzid: chrono_tz::Tz = maybe_tz
-            .parse()
-            .map_err(|e: chrono_tz::ParseError| e.to_string())?;
-        Ok(CalendarDateTime::from((dt, tzid)))
+impl From<ZonedDateTime> for CalendarDateTime {
+    fn from(value: ZonedDateTime) -> Self {
+        Self::from(&value)
     }
 }
 
 impl FromStr for CalendarDateTime {
     type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        CalendarDateTime::from_utc_string(s)
-            .or_else(|| CalendarDateTime::from_naive_string(s))
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        Self::from_utc_string(value)
+            .or_else(|| Self::from_naive_string(value))
             .ok_or(())
     }
 }
 
-/// Either a `DATE-TIME` or a `DATE`.
+/// iCalendar [`DATE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.4)
+/// or [`DATE-TIME`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.5)
+///
+/// Jiff inputs, owned or borrowed:
+///
+/// | Jiff input | Variant | Serialized form |
+/// | --- | --- | --- |
+/// | [`civil::Date`] | [`Date`](Self::Date) | `VALUE=DATE` |
+/// | [`civil::DateTime`] | [`DateTime`](Self::DateTime) with [`Floating`](CalendarDateTime::Floating) | floating local `DATE-TIME` |
+/// | [`Timestamp`] | [`DateTime`](Self::DateTime) with [`Utc`](CalendarDateTime::Utc) | UTC `DATE-TIME` ending in `Z` |
+/// | [`ZonedDateTime`] with an IANA zone | [`DateTime`](Self::DateTime) with [`WithTimezone`](CalendarDateTime::WithTimezone) | local `DATE-TIME` with `TZID` |
+/// | [`ZonedDateTime`] without an IANA zone | [`DateTime`](Self::DateTime) with [`Utc`](CalendarDateTime::Utc) | UTC `DATE-TIME` ending in `Z` |
+///
+/// A floating time, such as `DTSTART:20261102T090000`, has neither a `Z` suffix nor a `TZID`
+///
+/// A `VTIMEZONE` elsewhere doesn't change that.
+/// Use UTC or [`TZID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.2.19) for a fixed instant ([RFC 5545 §3.3.5](https://datatracker.ietf.org/doc/html/rfc5545#section-3.3.5)).
+///
+/// The later occurrence in a DST fold falls back to UTC.
+/// `TZID` alone can't preserve which occurrence it was.
+/// `DATE` isn't midnight. Parsed TZIDs stay unresolved, including custom `VTIMEZONE` IDs.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DatePerhapsTime {
-    /// A `DATE-TIME` property.
+    /// floating, UTC, or `TZID` local time
     DateTime(CalendarDateTime),
-    /// A `DATE` property.
-    Date(NaiveDate),
+    /// date-only, with `VALUE=DATE`
+    Date(civil::Date),
 }
 
 impl DatePerhapsTime {
-    /// Attempts to convert the given property into a `DatePerhapsTime`.
+    /// Parse a date or datetime without resolving its TZID
     pub fn from_property(property: &Property) -> Option<Self> {
         let value = property.value();
-
-        // Check if VALUE=DATE parameter is explicitly set
         if property.value_type() == Some(ValueType::Date) {
-            return Some(
-                NaiveDate::parse_from_str(value, NAIVE_DATE_FORMAT)
-                    .ok()?
-                    .into(),
-            );
+            return (property.params().get("TZID").is_none())
+                .then(|| parse_date(value))
+                .flatten()
+                .map(Self::Date);
         }
-
-        // Try parsing as DATE-TIME first (the default for DTSTART)
-        if let Some(dt) = CalendarDateTime::from_property(property) {
-            return Some(dt.into());
+        if let Some(date_time) = CalendarDateTime::from_property(property) {
+            return Some(Self::DateTime(date_time));
         }
-
-        // Fall back to parsing as DATE for leniency (handles DATE without VALUE=DATE parameter)
         #[cfg(not(feature = "strict-dates"))]
         {
-            NaiveDate::parse_from_str(value, NAIVE_DATE_FORMAT)
-                .ok()
-                .map(Into::into)
+            if property.params().get("VALUE").is_some() || property.params().get("TZID").is_some() {
+                return None;
+            }
+            parse_date(value).map(Self::Date)
         }
-
-        // In strict mode, do not accept DATE without VALUE=DATE parameter
         #[cfg(feature = "strict-dates")]
-        None
+        {
+            None
+        }
     }
 
-    /// Converts this `DatePerhapsTime` into a `Property`.
+    /// Convert to an iCalendar property
     pub fn to_property(&self, key: &str) -> Property {
         match self {
-            Self::DateTime(date_time) => date_time.to_property(key),
-            Self::Date(date) => naive_date_to_property(*date, key),
+            Self::DateTime(value) => value.to_property(key),
+            Self::Date(value) => naive_date_to_property(*value, key),
         }
     }
 
-    /// Discards time, assumes UTC, and returns an owned instance of a pure date
-    pub fn date_naive(&self) -> NaiveDate {
-        use crate::DatePerhapsTime::*;
+    /// Local date, or UTC date for a UTC instant
+    pub fn date_naive(&self) -> civil::Date {
         match self {
-            Date(date) => date.to_owned(),
-            DateTime(CalendarDateTime::Floating(date_time)) => date_time.date(),
-            DateTime(CalendarDateTime::Utc(date_time)) => date_time.date_naive(),
-            DateTime(CalendarDateTime::WithTimezone { date_time, tzid: _ }) => date_time.date(),
-        }
-    }
-}
-
-/// TODO: make public or delete
-#[cfg(feature = "chrono-tz")]
-#[allow(dead_code)]
-pub fn with_timezone<T: chrono::TimeZone + chrono_tz::OffsetName>(
-    dt: DateTime<T>,
-) -> DatePerhapsTime {
-    CalendarDateTime::WithTimezone {
-        date_time: dt.naive_local(),
-        tzid: dt.timezone().tz_id().to_owned(),
-    }
-    .into()
-}
-
-impl From<DatePerhapsTime> for NaiveDate {
-    fn from(dt: DatePerhapsTime) -> Self {
-        match dt {
-            DatePerhapsTime::Date(date) => date,
-            DatePerhapsTime::DateTime(CalendarDateTime::Floating(date_time)) => date_time.date(),
-            DatePerhapsTime::DateTime(CalendarDateTime::Utc(date_time)) => date_time.date_naive(),
-            DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone { date_time, tzid: _ }) => {
-                date_time.date()
+            Self::Date(date) => *date,
+            Self::DateTime(CalendarDateTime::Floating(value)) => value.date(),
+            Self::DateTime(CalendarDateTime::Utc(value)) => {
+                value.to_zoned_datetime(TimeZone::UTC).date()
             }
+            Self::DateTime(CalendarDateTime::WithTimezone { date_time, .. }) => date_time.date(),
         }
+    }
+}
+
+impl From<DatePerhapsTime> for civil::Date {
+    fn from(value: DatePerhapsTime) -> Self {
+        value.date_naive()
     }
 }
 
 impl From<CalendarDateTime> for DatePerhapsTime {
-    fn from(dt: CalendarDateTime) -> Self {
-        Self::DateTime(dt)
+    fn from(value: CalendarDateTime) -> Self {
+        Self::DateTime(value)
     }
 }
 
-impl From<DateTime<Utc>> for DatePerhapsTime {
-    fn from(dt: DateTime<Utc>) -> Self {
-        Self::DateTime(CalendarDateTime::Utc(dt))
+impl From<civil::Date> for DatePerhapsTime {
+    fn from(value: civil::Date) -> Self {
+        Self::Date(value)
     }
 }
 
-// CANT HAVE NICE THINGS until specializations are stable
-// OR: breaking change and make this the default
-// impl<TZ: chrono::TimeZone<Offset = O>, O: chrono_tz::OffsetName> From<DateTime<TZ>>
-//     for DatePerhapsTime
-// {
-//     fn from(date_time: DateTime<TZ>) -> Self {
-//         Self::DateTime(CalendarDateTime::from(date_time))
-//     }
-// }
-
-#[allow(deprecated)]
-impl From<chrono::Date<Utc>> for DatePerhapsTime {
-    fn from(dt: chrono::Date<Utc>) -> Self {
-        Self::Date(dt.naive_utc())
+impl From<&civil::Date> for DatePerhapsTime {
+    fn from(value: &civil::Date) -> Self {
+        Self::Date(*value)
     }
 }
 
-impl From<NaiveDateTime> for DatePerhapsTime {
-    fn from(dt: NaiveDateTime) -> Self {
-        Self::DateTime(dt.into())
+impl From<civil::DateTime> for DatePerhapsTime {
+    fn from(value: civil::DateTime) -> Self {
+        Self::DateTime(value.into())
     }
 }
 
-#[cfg(feature = "chrono-tz")]
-impl TryFrom<(NaiveDateTime, &str)> for DatePerhapsTime {
-    type Error = String;
-
-    fn try_from(value: (NaiveDateTime, &str)) -> Result<Self, Self::Error> {
-        Ok(Self::DateTime(value.try_into()?))
-    }
-}
-#[cfg(feature = "chrono-tz")]
-impl From<(NaiveDateTime, chrono_tz::Tz)> for DatePerhapsTime {
-    fn from(both: (NaiveDateTime, chrono_tz::Tz)) -> Self {
-        Self::DateTime(both.into())
+impl From<&civil::DateTime> for DatePerhapsTime {
+    fn from(value: &civil::DateTime) -> Self {
+        Self::DateTime(value.into())
     }
 }
 
-impl From<NaiveDate> for DatePerhapsTime {
-    fn from(date: NaiveDate) -> Self {
-        Self::Date(date)
+impl From<Timestamp> for DatePerhapsTime {
+    fn from(value: Timestamp) -> Self {
+        Self::DateTime(value.into())
     }
 }
 
-#[cfg(feature = "time")]
-impl From<time::Date> for DatePerhapsTime {
-    fn from(date: time::Date) -> Self {
-        let (y, o) = date.to_ordinal_date();
-        Self::Date(NaiveDate::from_yo_opt(y, o as u32).expect("bug: invalid date"))
+impl From<&Timestamp> for DatePerhapsTime {
+    fn from(value: &Timestamp) -> Self {
+        Self::DateTime(value.into())
     }
 }
 
-#[cfg(feature = "time")]
-impl From<time::OffsetDateTime> for DatePerhapsTime {
-    fn from(datetime: time::OffsetDateTime) -> Self {
-        // NOTE: A `time::UtcOffset` doesn't carry information about the timezone other than the offset
-        datetime.to_utc().into()
+impl From<ZonedDateTime> for DatePerhapsTime {
+    fn from(value: ZonedDateTime) -> Self {
+        Self::DateTime(value.into())
     }
 }
 
-#[cfg(feature = "time")]
-impl From<time::UtcDateTime> for DatePerhapsTime {
-    fn from(datetime: time::UtcDateTime) -> Self {
-        Self::DateTime(CalendarDateTime::Utc(
-            DateTime::from_timestamp(datetime.unix_timestamp(), datetime.nanosecond())
-                .expect("bug: invalid time"),
-        ))
-    }
-}
-
-#[cfg(feature = "time")]
-impl From<time::PrimitiveDateTime> for DatePerhapsTime {
-    fn from(datetime: time::PrimitiveDateTime) -> Self {
-        let utc = datetime.assume_utc();
-        Self::DateTime(CalendarDateTime::Floating(
-            NaiveDateTime::from_timestamp_opt(utc.unix_timestamp(), utc.nanosecond())
-                .expect("bug: invalid date"),
-        ))
+impl From<&ZonedDateTime> for DatePerhapsTime {
+    fn from(value: &ZonedDateTime) -> Self {
+        Self::DateTime(value.into())
     }
 }
 
@@ -452,220 +368,248 @@ impl TryFrom<&crate::parser::Property<'_>> for DatePerhapsTime {
     type Error = &'static str;
 
     fn try_from(value: &crate::parser::Property) -> Result<Self, Self::Error> {
-        let val = value.val.as_ref();
-
-        // UTC is here first because lots of fields MUST be UTC, so it should,
-        // in practice, be more common that others.
-        if let Ok(utc_dt) = Utc.datetime_from_str(val, "%Y%m%dT%H%M%SZ") {
-            return Ok(Self::DateTime(CalendarDateTime::Utc(utc_dt)));
-        };
-
-        if let Ok(naive_date) = NaiveDate::parse_from_str(val, "%Y%m%d") {
-            return Ok(Self::Date(naive_date));
-        };
-
-        if let Ok(naive_dt) = NaiveDateTime::parse_from_str(val, "%Y%m%dT%H%M%S") {
-            if let Some(tz_param) = value.params.iter().find(|p| p.key == "TZID") {
-                if let Some(tzid) = &tz_param.val {
-                    return Ok(Self::DateTime(CalendarDateTime::WithTimezone {
-                        date_time: naive_dt,
-                        tzid: tzid.as_ref().to_string(),
-                    }));
-                } else {
-                    return Err("Found empty TZID param.");
-                }
-            } else {
-                return Ok(Self::DateTime(CalendarDateTime::Floating(naive_dt)));
-            };
-        };
-
+        let raw = value.val.as_ref();
+        let value_type = value
+            .params
+            .iter()
+            .find(|param| param.key == "VALUE")
+            .and_then(|param| param.val.as_ref())
+            .map(crate::parser::ParseString::as_str);
+        let tz_param = value.params.iter().find(|param| param.key == "TZID");
+        if !matches!(value_type, None | Some("DATE") | Some("DATE-TIME")) {
+            return Err("Unknown DATE-TIME value type");
+        }
+        if value_type == Some("DATE") {
+            if tz_param.is_some() {
+                return Err("DATE cannot have TZID");
+            }
+            return parse_date(raw).map(Self::Date).ok_or("Invalid DATE");
+        }
+        if let Some(timestamp) = parse_utc_date_time(raw) {
+            if tz_param.is_some() {
+                return Err("UTC cannot have TZID");
+            }
+            return Ok(Self::DateTime(CalendarDateTime::Utc(timestamp)));
+        }
+        if let Some(date) = parse_date(raw) {
+            if cfg!(feature = "strict-dates") || value_type.is_some() || tz_param.is_some() {
+                return Err("DATE requires VALUE=DATE");
+            }
+            return Ok(Self::Date(date));
+        }
+        if let Some(date_time) = parse_naive_date_time(raw) {
+            if let Some(tz) = tz_param {
+                let tzid = tz
+                    .val
+                    .as_ref()
+                    .map(crate::parser::ParseString::as_str)
+                    .filter(|tzid| !tzid.is_empty())
+                    .ok_or("Found empty TZID param.")?;
+                return Ok(Self::DateTime(CalendarDateTime::WithTimezone {
+                    date_time,
+                    tzid: tzid.to_string(),
+                }));
+            }
+            return Ok(Self::DateTime(CalendarDateTime::Floating(date_time)));
+        }
         Err("Value does not look like a known DATE-TIME")
     }
 }
 
-#[cfg(all(test, feature = "parser"))]
-mod try_from_tests {
+#[cfg(test)]
+mod tests {
     use super::*;
+    use jiff::civil::date;
 
     #[test]
-    fn try_from_utc_dt() {
-        let prop = crate::parser::Property {
-            name: "TRIGGER".into(),
-            val: "20220716T141500Z".into(),
-            params: vec![crate::parser::Parameter {
-                key: "VALUE".into(),
-                val: Some("DATE-TIME".into()),
-            }],
-        };
-
-        let result = DatePerhapsTime::try_from(&prop);
-        let expected = Utc.ymd(2022, 7, 16).and_hms(14, 15, 0);
-
+    fn wire_forms() {
+        let local = date(2026, 3, 15).at(18, 45, 0, 0);
         assert_eq!(
-            result,
-            Ok(DatePerhapsTime::DateTime(CalendarDateTime::Utc(expected)))
+            CalendarDateTime::from(local).to_property("DTSTART").value(),
+            "20260315T184500"
+        );
+        assert_eq!(
+            DatePerhapsTime::from(local.date())
+                .to_property("DTSTART")
+                .value(),
+            "20260315"
+        );
+        assert_eq!(
+            format_utc_date_time(parse_utc_date_time("20260315T184500Z").unwrap()),
+            "20260315T184500Z"
+        );
+        for invalid in [
+            "2026-03-15",
+            "20260315T184500+01:00",
+            "20260315T1845Z",
+            "20260315T184560Z",
+            "20260315T184500.1Z",
+        ] {
+            assert!(parse_date(invalid).is_none(), "{invalid}");
+            assert!(parse_utc_date_time(invalid).is_none(), "{invalid}");
+            assert!(parse_naive_date_time(invalid).is_none(), "{invalid}");
+        }
+    }
+
+    #[test]
+    fn named_and_unknown_zones() {
+        let local = date(2026, 3, 15).at(18, 45, 0, 0);
+        let zoned = local.in_tz("Europe/Berlin").unwrap();
+        assert_eq!(
+            CalendarDateTime::from(&zoned)
+                .to_property("DTSTART")
+                .params()
+                .get("TZID")
+                .unwrap()
+                .value(),
+            "Europe/Berlin"
+        );
+        let custom = Property::new("DTSTART", "20260315T184500")
+            .add_parameter("TZID", "Custom/Zone")
+            .done();
+        assert_eq!(
+            CalendarDateTime::from_property(&custom)
+                .unwrap()
+                .to_property("DTSTART"),
+            custom
+        );
+        assert_eq!(
+            CalendarDateTime::from_property(&custom)
+                .unwrap()
+                .try_into_utc(),
+            None
         );
     }
 
     #[test]
-    fn try_from_naive_date() {
-        let prop = crate::parser::Property {
-            name: "TRIGGER".into(),
-            val: "19970714".into(),
-            params: vec![crate::parser::Parameter {
-                key: "VALUE".into(),
-                val: Some("DATE-TIME".into()),
-            }],
-        };
-
-        let result = DatePerhapsTime::try_from(&prop);
-        let expected = NaiveDate::from_ymd(1997, 7, 14);
-
-        assert_eq!(result, Ok(DatePerhapsTime::Date(expected)));
+    fn fixed_offsets_are_serialized_in_utc() {
+        let timestamp = date(2026, 3, 15)
+            .at(18, 45, 0, 0)
+            .in_tz("UTC")
+            .unwrap()
+            .timestamp();
+        let fixed = timestamp.to_zoned_datetime(TimeZone::fixed(jiff::tz::offset(2)));
+        let converted = CalendarDateTime::from(&fixed);
+        assert_eq!(converted, CalendarDateTime::Utc(timestamp));
+        assert_eq!(converted.to_property("DTSTART").value(), "20260315T184500Z");
     }
 
     #[test]
-    fn try_from_dt_with_tz() {
-        let prop = crate::parser::Property {
-            name: "TRIGGER".into(),
-            val: "20220716T141500".into(),
-            params: vec![
-                crate::parser::Parameter {
-                    key: "VALUE".into(),
-                    val: Some("DATE-TIME".into()),
-                },
-                crate::parser::Parameter {
-                    key: "TZID".into(),
-                    val: Some("MY-TZ-ID".into()),
-                },
-            ],
+    fn gaps_use_compatible_resolution_by_default() {
+        let local = date(2026, 3, 8).at(2, 30, 0, 0);
+        let value = CalendarDateTime::WithTimezone {
+            date_time: local,
+            tzid: "America/New_York".into(),
         };
+        assert!(value.try_into_utc().is_some());
+        assert!(value.try_into_utc_with(Disambiguation::Reject).is_none());
+    }
 
-        let result = DatePerhapsTime::try_from(&prop);
-        let expected = NaiveDate::from_ymd(2022, 7, 16).and_hms(14, 15, 0);
-
+    #[test]
+    fn subsecond_inputs_are_truncated_on_output() {
+        let local = date(2026, 3, 15).at(18, 45, 0, 123_456_789);
         assert_eq!(
-            result,
-            Ok(DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone {
-                date_time: expected,
-                tzid: "MY-TZ-ID".into(),
-            }))
+            CalendarDateTime::from(local).to_property("DTSTART").value(),
+            "20260315T184500"
         );
     }
 
     #[test]
-    fn try_from_dt_with_empty_tz() {
-        let prop = crate::parser::Property {
-            name: "TRIGGER".into(),
-            val: "20220716T141500".into(),
-            params: vec![
-                crate::parser::Parameter {
-                    key: "VALUE".into(),
-                    val: Some("DATE-TIME".into()),
-                },
-                crate::parser::Parameter {
-                    key: "TZID".into(),
-                    val: None,
-                },
-            ],
+    fn fold_preserves_instant() {
+        let zone = TimeZone::get("America/New_York").unwrap();
+        let local = date(2026, 11, 1).at(1, 30, 0, 0);
+        let later = zone.to_ambiguous_zoned_datetime(local).later().unwrap();
+        assert_eq!(
+            CalendarDateTime::from(&later),
+            CalendarDateTime::Utc(later.timestamp())
+        );
+        let earlier = zone.to_ambiguous_zoned_datetime(local).earlier().unwrap();
+        assert!(matches!(
+            CalendarDateTime::from(&earlier),
+            CalendarDateTime::WithTimezone { .. }
+        ));
+        let named = CalendarDateTime::WithTimezone {
+            date_time: local,
+            tzid: "America/New_York".into(),
         };
-
-        let result = DatePerhapsTime::try_from(&prop);
-
-        assert_eq!(result, Err("Found empty TZID param."));
+        assert!(named.try_into_utc_with(Disambiguation::Reject).is_none());
     }
 
     #[test]
-    fn try_from_floating_dt() {
-        let prop = crate::parser::Property {
-            name: "TRIGGER".into(),
-            val: "20220716T141500".into(),
+    #[cfg(feature = "parser")]
+    fn parsed_properties_keep_custom_tzid_and_date_policy() {
+        let mut parsed = crate::parser::Property {
+            name: "DTSTART".into(),
+            val: "20260315T184500".into(),
             params: vec![crate::parser::Parameter {
-                key: "VALUE".into(),
-                val: Some("DATE-TIME".into()),
+                key: "TZID".into(),
+                val: Some("Custom/Zone".into()),
             }],
         };
-
-        let result = DatePerhapsTime::try_from(&prop);
-        let expected = NaiveDate::from_ymd(2022, 7, 16).and_hms(14, 15, 0);
-
         assert_eq!(
-            result,
-            Ok(DatePerhapsTime::DateTime(CalendarDateTime::Floating(
-                expected
-            )))
+            DatePerhapsTime::try_from(&parsed).unwrap(),
+            DatePerhapsTime::DateTime(CalendarDateTime::WithTimezone {
+                date_time: date(2026, 3, 15).at(18, 45, 0, 0),
+                tzid: "Custom/Zone".into()
+            })
+        );
+        parsed.val = "20260315".into();
+        assert!(DatePerhapsTime::try_from(&parsed).is_err());
+        parsed.params.clear();
+        assert_eq!(
+            DatePerhapsTime::try_from(&parsed).is_ok(),
+            !cfg!(feature = "strict-dates")
+        );
+        parsed.params.push(crate::parser::Parameter {
+            key: "VALUE".into(),
+            val: Some("DATE".into()),
+        });
+        assert_eq!(
+            DatePerhapsTime::try_from(&parsed).unwrap(),
+            DatePerhapsTime::Date(date(2026, 3, 15))
         );
     }
 
     #[test]
-    fn try_from_non_dt_prop() {
-        let prop = crate::parser::Property {
-            name: "TZNAME".into(),
-            val: "CET".into(),
+    #[cfg(feature = "parser")]
+    fn parsed_datetime_forms_reject_empty_tzid() {
+        let mut parsed = crate::parser::Property {
+            name: "DTSTART".into(),
+            val: "20260315T184500Z".into(),
             params: vec![],
         };
-
-        let result = DatePerhapsTime::try_from(&prop);
-
-        assert_eq!(result, Err("Value does not look like a known DATE-TIME"));
-    }
-}
-
-#[cfg(test)]
-mod strict_dates_tests {
-    use super::*;
-
-    #[test]
-    #[cfg(not(feature = "strict-dates"))]
-    fn lenient_mode_accepts_date_without_value_param() {
-        let dt = DatePerhapsTime::from_property(&Property::new("DTSTART", "20000101"));
-
-        assert!(
-            dt.is_some(),
-            "In lenient mode, DATE without VALUE=DATE parameter should parse successfully"
+        assert!(matches!(
+            DatePerhapsTime::try_from(&parsed),
+            Ok(DatePerhapsTime::DateTime(CalendarDateTime::Utc(_)))
+        ));
+        parsed.val = "20260315T184500".into();
+        assert!(matches!(
+            DatePerhapsTime::try_from(&parsed),
+            Ok(DatePerhapsTime::DateTime(CalendarDateTime::Floating(_)))
+        ));
+        parsed.params.push(crate::parser::Parameter {
+            key: "TZID".into(),
+            val: None,
+        });
+        assert_eq!(
+            DatePerhapsTime::try_from(&parsed),
+            Err("Found empty TZID param.")
         );
-
-        assert!(
-            matches!(dt, Some(DatePerhapsTime::Date(_))),
-            "Expected DatePerhapsTime::Date variant"
+        parsed.val = "20260315T184500Z".into();
+        assert_eq!(
+            DatePerhapsTime::try_from(&parsed),
+            Err("UTC cannot have TZID")
         );
     }
 
     #[test]
-    #[cfg(feature = "strict-dates")]
-    fn strict_mode_rejects_date_without_value_param() {
-        assert!(
-            DatePerhapsTime::from_property(&Property::new("DTSTART", "20000101")).is_none(),
-            "In strict mode, DATE without VALUE=DATE parameter should fail to parse"
+    fn strict_date_feature() {
+        let mut raw = Property::new("DTSTART", "20000101");
+        assert_eq!(
+            DatePerhapsTime::from_property(&raw).is_some(),
+            !cfg!(feature = "strict-dates")
         );
-    }
-
-    #[test]
-    fn both_modes_accept_date_with_value_param() {
-        let dt = DatePerhapsTime::from_property(
-            Property::new("DTSTART", "20000101").append_parameter(("VALUE", "DATE")),
-        );
-
-        assert!(
-            dt.is_some(),
-            "Both modes should parse DATE with explicit VALUE=DATE parameter"
-        );
-
-        assert!(
-            matches!(dt, Some(DatePerhapsTime::Date(_))),
-            "Expected DatePerhapsTime::Date variant"
-        );
-    }
-
-    #[test]
-    fn both_modes_accept_datetime() {
-        let dt = DatePerhapsTime::from_property(&Property::new("DTSTART", "20000101T120000Z"));
-
-        assert!(dt.is_some(), "Both modes should parse DATE-TIME values");
-
-        assert!(
-            matches!(dt, Some(DatePerhapsTime::DateTime(_))),
-            "Expected DatePerhapsTime::DateTime variant"
-        );
+        let explicit = raw.append_parameter(("VALUE", "DATE"));
+        assert!(DatePerhapsTime::from_property(explicit).is_some());
     }
 }

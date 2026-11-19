@@ -1,11 +1,11 @@
-use chrono::*;
 use icalendar::*;
+use jiff::civil::date;
 
 #[test]
 fn try_into_string() -> Result<(), Box<dyn std::error::Error>> {
     let bday = Event::new()
-        .starts(NaiveDate::from_ymd_opt(2016, 3, 15).unwrap())
-        .ends(NaiveDate::from_ymd_opt(2016, 3, 15).unwrap())
+        .starts(date(2016, 3, 15))
+        .ends(date(2016, 3, 15))
         .summary("My Birthday")
         .description(
             r#"Hey, I'm gonna have a party
