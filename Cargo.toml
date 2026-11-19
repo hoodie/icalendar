@@ -21,15 +21,16 @@ default = ["parser"]
 parser = ["dep:nom", "dep:nom-language"]
 strict-dates = []
 chrono-tz = ["dep:chrono-tz"]
-recurrence = ["dep:rrule", "chrono-tz", "dep:thiserror"]
+
 
 [dependencies]
 serde = { version = "1.0.229", optional = true, features = ["derive"] }
 serde_json = { version = "1.0.154", optional = true }
 iso8601 = "0.6.6"
+jiff = "1"
 chrono-tz = { version = "0.10", optional = true }
 time = { version = "0.3.55", optional = true }
-thiserror = { version = "2.0.21", optional = true }
+
 
 [dependencies.chrono]
 version = "0.4.45"
@@ -44,9 +45,6 @@ optional = true
 version = "0.1"
 optional = true
 
-[dependencies.rrule]
-version = "0.14"
-optional = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies.uuid]
 features = ["v4"]
@@ -108,36 +106,16 @@ path = "examples/timezone.rs"
 required-features = ["chrono-tz"]
 
 [[example]]
-name = "recurrence_all_day"
-path = "examples/recurrence_all_day.rs"
-required-features = ["recurrence"]
-
-[[example]]
-name = "recurrence_with_tz"
-path = "examples/recurrence_with_tz.rs"
-required-features = ["recurrence", "chrono-tz"]
-
-[[example]]
 name = "recurrence_id"
 path = "examples/recurrence_id.rs"
-required-features = ["recurrence", "chrono-tz"]
+required-features = ["chrono-tz"]
 
 [[example]]
 name = "rdate"
 path = "examples/rdate.rs"
-required-features = ["recurrence", "chrono-tz"]
+required-features = ["chrono-tz"]
 
 [[example]]
 name = "attendee_parse"
 path = "examples/attendee_parse.rs"
 required-features = ["parser"]
-
-[[example]]
-name = "recurrence_parse"
-path = "examples/recurrence_parse.rs"
-required-features = ["recurrence", "parser"]
-
-[[example]]
-name = "recurrence_calendar_tz"
-path = "examples/recurrence_calendar_tz.rs"
-required-features = ["recurrence"]

@@ -1,8 +1,6 @@
 use chrono::Duration;
 use std::{fmt, mem, ops::Deref};
 
-#[cfg(feature = "recurrence")]
-use crate::components::build_recurrence_set;
 use crate::{Parameter, Property, components::*};
 
 /// Accepted by [`Calendar::timezone`].
@@ -316,12 +314,6 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Event` components.
-    ///
-    /// For timezone-aware recurrence on all-day events, use
-    /// [`calendar_events()`](Calendar::calendar_events) instead.
-    ///
-    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarEvent<'_>>`
-    // and drop calendar_events().
     pub fn events(&self) -> impl Iterator<Item = &Event> {
         self.components
             .iter()
@@ -342,12 +334,6 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Todo` components.
-    ///
-    /// For timezone-aware recurrence on all-day todos, use
-    /// [`calendar_todos()`](Calendar::calendar_todos) instead.
-    ///
-    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarTodo<'_>>`
-    // and drop calendar_todos().
     pub fn todos(&self) -> impl Iterator<Item = &Todo> {
         self.components
             .iter()
@@ -368,9 +354,6 @@ impl Calendar {
     }
 
     /// Like [`events()`](Calendar::events) but each item carries the calendar's timezone.
-    ///
-    /// Needed for timezone-aware recurrence on all-day events.
-    #[cfg(feature = "recurrence")]
     pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
         let tz = self.get_timezone();
         self.events().map(move |event| CalendarEvent {
@@ -380,9 +363,6 @@ impl Calendar {
     }
 
     /// Like [`todos()`](Calendar::todos) but each item carries the calendar's timezone.
-    ///
-    /// Needed for timezone-aware recurrence on all-day todos.
-    #[cfg(feature = "recurrence")]
     pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
         let tz = self.get_timezone();
         self.todos().map(move |todo| CalendarTodo {
@@ -394,21 +374,19 @@ impl Calendar {
 
 /// Borrowed view of an [`Event`] paired with its calendar's timezone.
 ///
-/// Obtained from [`Calendar::calendar_events`]. The timezone is needed to anchor
-/// DATE-only `DTSTART` values when expanding recurrences.
+/// Obtained from [`Calendar::calendar_events`]. The timezone is available to
+/// resolve floating calendar values.
 ///
 /// ## Serialisation
 ///
 /// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
 /// Serialise the inner event via [`.event()`](CalendarEvent::event).
-#[cfg(feature = "recurrence")]
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarEvent<'a> {
     event: &'a Event,
     calendar_tz: Option<&'a str>,
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> CalendarEvent<'a> {
     /// The underlying event.
     pub fn event(&self) -> &'a Event {
@@ -419,15 +397,8 @@ impl<'a> CalendarEvent<'a> {
     pub fn calendar_tz(&self) -> Option<&str> {
         self.calendar_tz
     }
-
-    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
-    #[cfg(feature = "recurrence")]
-    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
-        build_recurrence_set(self.event, self.calendar_tz)
-    }
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> Deref for CalendarEvent<'a> {
     type Target = Event;
     fn deref(&self) -> &Event {
@@ -437,24 +408,21 @@ impl<'a> Deref for CalendarEvent<'a> {
 
 /// Borrowed view of a [`Todo`] paired with its calendar's timezone.
 ///
-/// Obtained from [`Calendar::calendar_todos`]. The timezone is needed to anchor
-/// DATE-only `DTSTART` values when expanding recurrences.
+/// Obtained from [`Calendar::calendar_todos`]. The timezone is available to
+/// resolve floating calendar values.
 ///
 /// ## Serialisation
 ///
 /// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
 /// Serialise the inner todo via [`.todo()`](CalendarTodo::todo).
-#[cfg(feature = "recurrence")]
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarTodo<'a> {
     todo: &'a Todo,
     calendar_tz: Option<&'a str>,
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> CalendarTodo<'a> {
     /// The underlying todo.
-    #[cfg(feature = "recurrence")]
     pub fn todo(&self) -> &'a Todo {
         self.todo
     }
@@ -463,15 +431,8 @@ impl<'a> CalendarTodo<'a> {
     pub fn calendar_tz(&self) -> Option<&str> {
         self.calendar_tz
     }
-
-    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
-    #[cfg(feature = "recurrence")]
-    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
-        build_recurrence_set(self.todo, self.calendar_tz)
-    }
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> Deref for CalendarTodo<'a> {
     type Target = Todo;
     fn deref(&self) -> &Todo {

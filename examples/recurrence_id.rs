@@ -8,8 +8,7 @@ fn main() {
         .description("Every Wednesday 10:00–11:00, Berlin time.")
         .starts(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 7, 10, 0, Berlin).unwrap())
         .ends(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 7, 11, 0, Berlin).unwrap())
-        .recurrence(RRule::new(Frequency::Weekly).by_weekday(vec![NWeekday::Every(Weekday::Wed)]))
-        .unwrap()
+        .add_property("RRULE", "FREQ=WEEKLY;BYDAY=WE")
         .done();
 
     let standup_rescheduled = Event::new()

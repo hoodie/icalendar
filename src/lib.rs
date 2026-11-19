@@ -44,13 +44,12 @@ mod components;
 #[cfg(feature = "parser")]
 pub mod parser;
 mod properties;
-#[cfg(feature = "recurrence")]
-mod recurrence;
+
 mod text;
 mod value_types;
 
 pub use crate::{
-    calendar::{Calendar, CalendarComponent, IntoTimezoneId},
+    calendar::{Calendar, CalendarComponent, CalendarEvent, CalendarTodo, IntoTimezoneId},
     components::{
         Component, Event, EventLike, Todo, Venue,
         alarm::{Alarm, Related, Trigger},
@@ -62,12 +61,6 @@ pub use crate::{
     },
     value_types::ValueType,
 };
-
-#[cfg(feature = "recurrence")]
-pub use recurrence::*;
-
-#[cfg(feature = "recurrence")]
-pub use crate::calendar::{CalendarEvent, CalendarTodo};
 
 #[cfg(feature = "chrono-tz")]
 pub use crate::components::date_time::ymd_hm_tzid;

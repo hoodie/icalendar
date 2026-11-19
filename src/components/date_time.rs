@@ -245,23 +245,6 @@ impl From<&DateTime<chrono_tz::Tz>> for CalendarDateTime {
     }
 }
 
-#[cfg(feature = "recurrence")]
-impl From<&DateTime<rrule::Tz>> for CalendarDateTime {
-    fn from(dt: &DateTime<rrule::Tz>) -> CalendarDateTime {
-        let tz = dt.timezone();
-        if tz == rrule::Tz::UTC {
-            CalendarDateTime::Utc(dt.with_timezone(&Utc))
-        } else if tz == rrule::Tz::LOCAL {
-            CalendarDateTime::Floating(dt.naive_local())
-        } else {
-            CalendarDateTime::WithTimezone {
-                date_time: dt.naive_local(),
-                tzid: tz.to_string(),
-            }
-        }
-    }
-}
-
 #[cfg(feature = "chrono-tz")]
 impl TryFrom<(NaiveDateTime, &str)> for CalendarDateTime {
     type Error = String;
