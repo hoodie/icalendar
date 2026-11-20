@@ -56,7 +56,7 @@ fn raw_recurrence_properties_round_trip() {
             .unwrap()
             .get_recurrence_id()
             .unwrap()
-            .date_naive()
+            .date()
             .to_string(),
         "2026-01-06"
     );

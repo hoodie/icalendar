@@ -1,8 +1,25 @@
 use crate::components::duration::{format_duration, parse_duration};
-use jiff::Span;
+use jiff::{
+    Span, ZonedDateTime,
+    tz::{Disambiguation, TimeZone},
+};
 use std::{fmt, mem, ops::Deref};
 
-use crate::{Parameter, Property, components::*};
+use crate::{CalendarDateTime, DatePerhapsTime, Parameter, Property, components::*};
+
+fn resolve_date(
+    value: DatePerhapsTime,
+    calendar_tz: Option<&str>,
+    policy: Disambiguation,
+) -> Option<ZonedDateTime> {
+    let fallback = match &value {
+        DatePerhapsTime::Date(_) | DatePerhapsTime::DateTime(CalendarDateTime::Floating(_)) => {
+            TimeZone::get(calendar_tz?).ok()?
+        }
+        _ => TimeZone::UTC,
+    };
+    value.to_zoned_datetime_with(&fallback, policy)
+}
 
 /// Accepted by [`Calendar::timezone`].
 ///
@@ -384,6 +401,26 @@ impl<'a> CalendarEvent<'a> {
     pub fn calendar_tz(&self) -> Option<&str> {
         self.calendar_tz
     }
+
+    /// Resolve `DTSTART` using the calendar timezone for floating and date-only values.
+    pub fn start(&self) -> Option<ZonedDateTime> {
+        self.start_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve `DTSTART` with the specified gap and fold policy.
+    pub fn start_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        resolve_date(self.event.get_start()?, self.calendar_tz, policy)
+    }
+
+    /// Resolve `DTEND` using the calendar timezone for floating and date-only values.
+    pub fn end(&self) -> Option<ZonedDateTime> {
+        self.end_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve `DTEND` with the specified gap and fold policy.
+    pub fn end_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        resolve_date(self.event.get_end()?, self.calendar_tz, policy)
+    }
 }
 
 impl<'a> Deref for CalendarEvent<'a> {
@@ -417,6 +454,26 @@ impl<'a> CalendarTodo<'a> {
     /// The calendar's timezone, if one was set.
     pub fn calendar_tz(&self) -> Option<&str> {
         self.calendar_tz
+    }
+
+    /// Resolve `DTSTART` using the calendar timezone for floating and date-only values.
+    pub fn start(&self) -> Option<ZonedDateTime> {
+        self.start_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve `DTSTART` with the specified gap and fold policy.
+    pub fn start_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        resolve_date(self.todo.get_start()?, self.calendar_tz, policy)
+    }
+
+    /// Resolve `DUE` using the calendar timezone for floating and date-only values.
+    pub fn due(&self) -> Option<ZonedDateTime> {
+        self.due_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve `DUE` with the specified gap and fold policy.
+    pub fn due_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        resolve_date(self.todo.get_due()?, self.calendar_tz, policy)
     }
 }
 
@@ -518,11 +575,11 @@ mod tests {
         assert_eq!(calendar.get_ttl().unwrap().fieldwise(), 1.day().fieldwise());
         assert_eq!(calendar.property_value("REFRESH-INTERVAL"), Some("P1D"));
         let mut signed = Calendar::new();
-        signed.try_ttl(SignedDuration::from_hours(24)).unwrap();
+        signed.ttl(SignedDuration::from_hours(24)).unwrap();
         assert_eq!(signed.property_value("REFRESH-INTERVAL"), Some("PT86400S"));
-        assert!(signed.try_ttl(1.month()).is_err());
-        assert!(signed.try_ttl(-1.hour()).is_err());
-        assert!(signed.try_ttl(0.seconds()).is_err());
+        assert!(signed.ttl(1.month()).is_err());
+        assert!(signed.ttl(-1.hour()).is_err());
+        assert!(signed.ttl(0.seconds()).is_err());
         assert_eq!(signed.property_value("REFRESH-INTERVAL"), Some("PT86400S"));
         let mut invalid = Calendar::new();
         invalid.append_property(Property::new("REFRESH-INTERVAL", "P1W2D"));

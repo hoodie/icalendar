@@ -147,6 +147,24 @@ impl CalendarDateTime {
         parse_naive_date_time(value).map(Self::Floating)
     }
 
+    /// Resolve this value to a zoned datetime. Floating times have no implicit zone.
+    pub fn to_zoned_datetime(&self) -> Option<ZonedDateTime> {
+        self.to_zoned_datetime_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve this value using the given gap and fold policy.
+    pub fn to_zoned_datetime_with(&self, disambiguation: Disambiguation) -> Option<ZonedDateTime> {
+        match self {
+            Self::Floating(_) => None,
+            Self::Utc(value) => Some(value.to_zoned_datetime(TimeZone::UTC)),
+            Self::WithTimezone { date_time, tzid } => TimeZone::get(tzid)
+                .ok()?
+                .to_ambiguous_zoned_datetime(*date_time)
+                .disambiguate(disambiguation)
+                .ok(),
+        }
+    }
+
     /// Resolve a TZID with Jiff's compatible gap and fold policy
     /// Floating times and unknown zones return `None`
     pub fn try_into_utc(&self) -> Option<Timestamp> {
@@ -155,16 +173,8 @@ impl CalendarDateTime {
 
     /// Resolve a TZID with the given ambiguity policy
     pub fn try_into_utc_with(&self, disambiguation: Disambiguation) -> Option<Timestamp> {
-        match self {
-            Self::Floating(_) => None,
-            Self::Utc(value) => Some(*value),
-            Self::WithTimezone { date_time, tzid } => TimeZone::get(tzid)
-                .ok()?
-                .to_ambiguous_zoned_datetime(*date_time)
-                .disambiguate(disambiguation)
-                .ok()
-                .map(|value| value.timestamp()),
-        }
+        self.to_zoned_datetime_with(disambiguation)
+            .map(|value| value.timestamp())
     }
 }
 
@@ -290,8 +300,32 @@ impl DatePerhapsTime {
         }
     }
 
+    /// Resolve a date or floating time in the supplied zone, or use its own TZID/UTC.
+    pub fn to_zoned_datetime(&self, timezone: &TimeZone) -> Option<ZonedDateTime> {
+        self.to_zoned_datetime_with(timezone, Disambiguation::Compatible)
+    }
+
+    /// Resolve a date or floating time with an explicit gap and fold policy.
+    pub fn to_zoned_datetime_with(
+        &self,
+        timezone: &TimeZone,
+        disambiguation: Disambiguation,
+    ) -> Option<ZonedDateTime> {
+        match self {
+            Self::Date(date) => timezone
+                .to_ambiguous_zoned_datetime(date.at(0, 0, 0, 0))
+                .disambiguate(disambiguation)
+                .ok(),
+            Self::DateTime(CalendarDateTime::Floating(value)) => timezone
+                .to_ambiguous_zoned_datetime(*value)
+                .disambiguate(disambiguation)
+                .ok(),
+            Self::DateTime(value) => value.to_zoned_datetime_with(disambiguation),
+        }
+    }
+
     /// Local date, or UTC date for a UTC instant
-    pub fn date_naive(&self) -> civil::Date {
+    pub fn date(&self) -> civil::Date {
         match self {
             Self::Date(date) => *date,
             Self::DateTime(CalendarDateTime::Floating(value)) => value.date(),
@@ -305,7 +339,7 @@ impl DatePerhapsTime {
 
 impl From<DatePerhapsTime> for civil::Date {
     fn from(value: DatePerhapsTime) -> Self {
-        value.date_naive()
+        value.date()
     }
 }
 
