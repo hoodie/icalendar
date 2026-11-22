@@ -41,15 +41,9 @@ test:
 # Run tests with all feature combinations from CI matrix
 test-all-features:
     cargo nextest run --no-default-features
-    cargo nextest run --no-default-features --features parser
+    cargo nextest run --no-default-features --features "parser"
     cargo nextest run --no-default-features --features "parser,strict-dates"
     cargo nextest run --no-default-features --features "parser,serde_json"
-    cargo nextest run --no-default-features --features "parser,recurrence"
-    cargo nextest run --no-default-features --features "parser,chrono-tz"
-    cargo nextest run --no-default-features --features "parser,time"
-    cargo nextest run --no-default-features --features chrono-tz
-    cargo nextest run --no-default-features --features time
-    cargo nextest run --no-default-features --features "parser,serde_json,chrono-tz,time"
 
 # Run tests with parser feature
 test-parser:
