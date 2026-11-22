@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _};
 
 fn main() {
     // alarm will occur one minute from now

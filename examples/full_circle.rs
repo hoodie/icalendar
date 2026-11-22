@@ -2,7 +2,6 @@
 use std::str::FromStr;
 
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _};
 
 fn main() {
     let event = Event::new()

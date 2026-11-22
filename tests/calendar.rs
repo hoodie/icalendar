@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _, civil::date};
 use pretty_assertions::assert_eq;
 
 const EXPECTED_CAL_CONTENT: &str = "\

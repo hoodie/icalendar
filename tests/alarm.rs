@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::{ToSpan as _, civil::date};
 use pretty_assertions::assert_eq;
 
 /// Taken from https://datatracker.ietf.org/doc/html/rfc5545

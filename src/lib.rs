@@ -48,6 +48,11 @@ mod properties;
 mod text;
 mod value_types;
 
+pub use jiff::{
+    self, Span, Timestamp, ToSpan, ZonedDateTime,
+    civil::{Date, DateTime, Time, date},
+};
+
 pub use crate::{
     calendar::{Calendar, CalendarComponent, CalendarEvent, CalendarTodo, IntoTimezoneId},
     components::{

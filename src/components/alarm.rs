@@ -282,7 +282,7 @@ fn test_audio() {
 fn test_display() {
     let now = CalendarDateTime::now().try_into_utc().unwrap();
 
-    let alarm = Alarm::display("test alarm with display", now.clone());
+    let alarm = Alarm::display("test alarm with display", now);
     assert_eq!(alarm.get_action(), Some(Action::Display));
     assert_eq!(alarm.get_trigger().unwrap().as_date_time().unwrap(), &now);
     assert_eq!(alarm.get_description(), Some("test alarm with display"));
@@ -293,7 +293,7 @@ fn test_display() {
 fn test_email() {
     let now = CalendarDateTime::now().try_into_utc().unwrap();
 
-    let alarm = Alarm::email("test alarm with email", now.clone(), "important email");
+    let alarm = Alarm::email("test alarm with email", now, "important email");
     assert_eq!(alarm.get_action(), Some(Action::Email));
     assert_eq!(alarm.get_trigger().unwrap().as_date_time().unwrap(), &now);
     assert_eq!(alarm.get_description(), Some("test alarm with email"));

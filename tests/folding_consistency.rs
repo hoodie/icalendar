@@ -1,6 +1,5 @@
 #![cfg(feature = "parser")]
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _};
 use pretty_assertions::assert_eq;
 
 #[test]

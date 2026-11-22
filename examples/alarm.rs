@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::{ToSpan as _, ZonedDateTime};
 
 fn main() {
     let mut calendar = Calendar::new();

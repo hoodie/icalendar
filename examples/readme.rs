@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::{ToSpan as _, ZonedDateTime, civil::date};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let now = ZonedDateTime::now(); // using a local now so the date arithmetic is done in the local timezone

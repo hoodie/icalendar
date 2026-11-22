@@ -1,7 +1,6 @@
 use std::io;
 
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _};
 
 fn buy_milk() -> Todo {
     Todo::new()

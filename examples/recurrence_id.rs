@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::civil::date;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let standup = Event::new()

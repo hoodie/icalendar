@@ -2,8 +2,6 @@
 use std::str::FromStr;
 
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _};
-// use pretty_assertions::assert_eq;
 
 fn get_summary(calendar: &Calendar) -> &str {
     calendar.components[0]

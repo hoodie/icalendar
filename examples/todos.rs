@@ -1,5 +1,4 @@
 use icalendar::*;
-use jiff::{Timestamp, ToSpan as _, ZonedDateTime};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let now = ZonedDateTime::now();

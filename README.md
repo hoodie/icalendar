@@ -30,8 +30,7 @@ Display printing produces the rfc5545 format.
 
 ```rust
 # fn main() -> Result<(), Box<dyn std::error::Error>> {
-use icalendar::{Calendar, Class, Component, Event, EventLike, Property, Todo};
-use jiff::{Timestamp, ToSpan as _, civil::date};
+use icalendar::*;
 
 let now = Timestamp::now();
 
