@@ -140,11 +140,11 @@ Calendars can still parse and emit `RRULE`, `RDATE`, `EXDATE`, and `RECURRENCE-I
 
 ## Migrating to Jiff
 
-Add `jiff = "1"` to your application: this crate does not re-export Jiff. Pass `civil::Date` for `VALUE=DATE`, `civil::DateTime` for a floating local time, `Timestamp` for UTC, or a named `ZonedDateTime` for a local time with `TZID`. For example, `date(2026, 3, 15).at(18, 45, 0, 0).in_tz("Europe/Berlin")?` can be passed to `starts()`. Parsed custom `TZID` values are retained even if they cannot be resolved locally.
+Jiff is re-exported as `icalendar::jiff`, with selected types also available at the crate root. Pass `civil::Date` for `VALUE=DATE`, `civil::DateTime` for a floating local time, `Timestamp` for UTC, or a named `ZonedDateTime` for a local time with `TZID`. For example, `date(2026, 3, 15).at(18, 45, 0, 0).in_tz("Europe/Berlin")?` can be passed to `starts()`. Parsed custom `TZID` values are retained even if they cannot be resolved locally.
 
 Use `CalendarDateTime::to_zoned_datetime()` for a known `TZID`, or `DatePerhapsTime::to_zoned_datetime(&zone)` for floating and date-only values. `Calendar::calendar_events()` and `calendar_todos()` provide resolved accessors using `X-WR-TIMEZONE` when those values need a calendar zone. Resolution defaults to Jiff's `Compatible` gap/fold policy; pass `Disambiguation::Reject` to a `_with` variant to reject ambiguity. A floating value remains floating on the wire even when the calendar has `X-WR-TIMEZONE`.
 
-The migration table, breaking changes, and current limitations are in the [Unreleased changelog](CHANGELOG.md#unreleased). In particular, `all_day()` does not yet produce an exclusive end date, and resolved event `end()` does not yet calculate `DTSTART + DURATION`.
+`EventLike` has been removed; shared builders are inherent methods on `Event` and `Todo`. `ends()` and `all_day()` are event-only, while todos use `due()`. `lasts(span)` sets `DURATION` on either type, and calendar view `end()`/`due()` resolve that duration from `DTSTART` using zoned arithmetic. `all_day(date)` emits an exclusive next-day `DTEND`. See the [Unreleased changelog](CHANGELOG.md#unreleased) for migration details.
 
 Browser WASM applications using Jiff's clock or system timezone should enable `jiff/js` in their own dependency. This crate does not enable it by default. Named-zone lookup also depends on available timezone data; check the target runtime, especially on minimal containers, Windows and WASM.
 

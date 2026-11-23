@@ -1,4 +1,4 @@
-use icalendar::{Alarm, Calendar, Component, Event, EventLike, Todo};
+use icalendar::{Alarm, Calendar, Component, Event, Todo};
 use jiff::{Timestamp, ToSpan as _, civil::date};
 
 #[test]

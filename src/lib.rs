@@ -56,7 +56,7 @@ pub use jiff::{
 pub use crate::{
     calendar::{Calendar, CalendarComponent, CalendarEvent, CalendarTodo, IntoTimezoneId},
     components::{
-        Component, Event, EventLike, Todo, Venue,
+        Component, Event, Todo, Venue,
         alarm::{Alarm, Related, Trigger},
         date_time::{CalendarDateTime, DatePerhapsTime},
     },

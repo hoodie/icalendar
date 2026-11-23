@@ -21,6 +21,16 @@ fn resolve_date(
     value.to_zoned_datetime_with(&fallback, policy)
 }
 
+fn resolve_duration_end(
+    start: Option<DatePerhapsTime>,
+    duration: Option<&str>,
+    calendar_tz: Option<&str>,
+    policy: Disambiguation,
+) -> Option<ZonedDateTime> {
+    let start = resolve_date(start?, calendar_tz, policy)?;
+    start.checked_add(parse_duration(duration?)?).ok()
+}
+
 /// Accepted by [`Calendar::timezone`].
 ///
 /// Implemented for:
@@ -412,14 +422,22 @@ impl<'a> CalendarEvent<'a> {
         resolve_date(self.event.get_start()?, self.calendar_tz, policy)
     }
 
-    /// Resolve `DTEND` using the calendar timezone for floating and date-only values.
+    /// Resolve the end from `DTEND` or `DTSTART` plus `DURATION`, using the calendar timezone.
     pub fn end(&self) -> Option<ZonedDateTime> {
         self.end_with(Disambiguation::Compatible)
     }
 
-    /// Resolve `DTEND` with the specified gap and fold policy.
+    /// Resolve the event end with the specified gap and fold policy.
     pub fn end_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
-        resolve_date(self.event.get_end()?, self.calendar_tz, policy)
+        if let Some(end) = self.event.get_end() {
+            return resolve_date(end, self.calendar_tz, policy);
+        }
+        resolve_duration_end(
+            self.event.get_start(),
+            self.event.property_value("DURATION"),
+            self.calendar_tz,
+            policy,
+        )
     }
 }
 
@@ -466,14 +484,22 @@ impl<'a> CalendarTodo<'a> {
         resolve_date(self.todo.get_start()?, self.calendar_tz, policy)
     }
 
-    /// Resolve `DUE` using the calendar timezone for floating and date-only values.
+    /// Resolve the todo's `DUE` or `DTSTART` plus `DURATION`, using the calendar timezone.
     pub fn due(&self) -> Option<ZonedDateTime> {
         self.due_with(Disambiguation::Compatible)
     }
 
-    /// Resolve `DUE` with the specified gap and fold policy.
+    /// Resolve the todo due date with the specified gap and fold policy.
     pub fn due_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
-        resolve_date(self.todo.get_due()?, self.calendar_tz, policy)
+        if let Some(due) = self.todo.get_due() {
+            return resolve_date(due, self.calendar_tz, policy);
+        }
+        resolve_duration_end(
+            self.todo.get_start(),
+            self.todo.property_value("DURATION"),
+            self.calendar_tz,
+            policy,
+        )
     }
 }
 

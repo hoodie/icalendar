@@ -47,9 +47,13 @@ impl Todo {
     /// Set the [`DUE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.3) property
     ///
     /// See [`CalendarDateTime`](`crate::CalendarDateTime`) for the supported date-time forms.
+    ///
+    /// # Side effects
+    /// Setting `DUE` will remove `DURATION`.
     pub fn due<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt: DatePerhapsTime = dt.into();
-        self.append_property(calendar_dt.to_property("DUE"))
+        self.remove_property("DURATION")
+            .append_property(calendar_dt.to_property("DUE"))
     }
 
     /// Removes the [`DUE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.3) property

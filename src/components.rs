@@ -395,143 +395,105 @@ pub trait Component {
     }
 }
 
-/// Common trait of [`Event`] and [`Todo`]
-pub trait EventLike: Component {
-    /// Appends a [`CATEGORIES`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.2) property.
-    ///
-    /// Each item is escaped, so it may contain commas.
-    fn categories<I, S>(&mut self, categories: I) -> &mut Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        self.append_multi_property(Property::new("CATEGORIES", join_text_list(categories)))
-    }
+macro_rules! event_component_methods {
+    ($component_type:ty, $end_property:literal) => {
+        impl $component_type {
+            /// Appends a `CATEGORIES` property. Each item is escaped.
+            pub fn categories<I, S>(&mut self, categories: I) -> &mut Self
+            where
+                I: IntoIterator<Item = S>,
+                S: AsRef<str>,
+            {
+                self.append_multi_property(Property::new("CATEGORIES", join_text_list(categories)))
+            }
 
-    /// Gets all categories, across every `CATEGORIES` property.
-    fn get_categories(&self) -> Option<Vec<String>> {
-        get_text_list(self, "CATEGORIES")
-    }
+            /// Gets all categories, across every `CATEGORIES` property.
+            pub fn get_categories(&self) -> Option<Vec<String>> {
+                get_text_list(self, "CATEGORIES")
+            }
 
-    /// Appends a [`RESOURCES`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.10) property.
-    ///
-    /// Each item is escaped, so it may contain commas.
-    fn resources<I, S>(&mut self, resources: I) -> &mut Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        self.append_multi_property(Property::new("RESOURCES", join_text_list(resources)))
-    }
+            /// Appends a `RESOURCES` property. Each item is escaped.
+            pub fn resources<I, S>(&mut self, resources: I) -> &mut Self
+            where
+                I: IntoIterator<Item = S>,
+                S: AsRef<str>,
+            {
+                self.append_multi_property(Property::new("RESOURCES", join_text_list(resources)))
+            }
 
-    /// Gets all resources, across every `RESOURCES` property.
-    fn get_resources(&self) -> Option<Vec<String>> {
-        get_text_list(self, "RESOURCES")
-    }
+            /// Gets all resources, across every `RESOURCES` property.
+            pub fn get_resources(&self) -> Option<Vec<String>> {
+                get_text_list(self, "RESOURCES")
+            }
 
-    /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
-    ///
-    /// See [`DatePerhapsTime`] for info how are different types converted automatically.
-    /// Accepted are [`jiff::civil::Date`], [`jiff::civil::DateTime`], [`jiff::Timestamp`] and [`jiff::ZonedDateTime`] inputs map to their ICS forms.
-    fn starts<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
-        let calendar_dt = dt.into();
-        self.append_property(calendar_dt.to_property("DTSTART"))
-    }
+            /// Sets `DTSTART`.
+            pub fn starts<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_property(date_time.into().to_property("DTSTART"))
+            }
 
-    /// removes the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
-    fn remove_starts(&mut self) -> &mut Self {
-        self.remove_property("DTSTART")
-    }
+            /// Removes `DTSTART`.
+            pub fn remove_starts(&mut self) -> &mut Self {
+                self.remove_property("DTSTART")
+            }
 
-    /// Set the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
-    ///
-    /// See [`DatePerhapsTime`] for info how are different types converted automatically.
-    /// Accepted are [`jiff::civil::Date`], [`jiff::civil::DateTime`], [`jiff::Timestamp`] and [`jiff::ZonedDateTime`] inputs map to their ICS forms.
-    fn ends<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
-        let calendar_dt = dt.into();
-        self.append_property(calendar_dt.to_property("DTEND"))
-    }
+            /// Sets `DURATION`, replacing `DTEND` or `DUE`.
+            ///
+            /// The supplied span is not validated. RFC 5545 requires a positive
+            /// duration, and date-only starts require days or weeks.
+            pub fn lasts(&mut self, duration: jiff::Span) -> &mut Self {
+                self.remove_property($end_property)
+                    .append_property(duration)
+            }
 
-    /// Removes the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
-    fn remove_ends(&mut self) -> &mut Self {
-        self.remove_property("DTEND")
-    }
+            /// Sets `RECURRENCE-ID`.
+            pub fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_property(date_time.into().to_property("RECURRENCE-ID"))
+            }
 
-    /// Sets the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
-    /// property.
-    ///
-    /// See [`DatePerhapsTime`] for info how are different types converted automatically.
-    /// Accepted are [`jiff::civil::Date`], [`jiff::civil::DateTime`], [`jiff::Timestamp`] and [`jiff::ZonedDateTime`] inputs map to their ICS forms.
-    fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
-        let calendar_dt = dt.into();
-        self.append_property(calendar_dt.to_property("RECURRENCE-ID"))
-    }
+            /// Removes `RECURRENCE-ID`.
+            pub fn remove_recurrence_id(&mut self) -> &mut Self {
+                self.remove_property("RECURRENCE-ID")
+            }
 
-    /// Removes the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
-    fn remove_recurrence_id(&mut self) -> &mut Self {
-        self.remove_property("RECURRENCE-ID")
-    }
+            /// Sets `LOCATION` with a venue UID from the expired ical-venue draft.
+            pub fn venue(&mut self, location: &str, venue_uid: &str) -> &mut Self {
+                self.append_property(
+                    Property::new("LOCATION", location)
+                        .append_parameter(Parameter::new("VVENUE", venue_uid))
+                        .done(),
+                )
+            }
 
-    /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
-    /// and [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`],
-    /// date only
-    fn all_day(&mut self, date: Date) -> &mut Self {
-        self.append_property(naive_date_to_property(date, "DTSTART"))
-            .append_property(naive_date_to_property(date, "DTEND"))
-    }
+            /// Sets `LOCATION`.
+            pub fn location(&mut self, location: &str) -> &mut Self {
+                self.add_property("LOCATION", location)
+            }
 
-    /// Set the LOCATION with a VVENUE UID
-    /// iCalender venue draft
-    fn venue(&mut self, location: &str, venue_uid: &str) -> &mut Self {
-        self.append_property(
-            Property::new("LOCATION", location)
-                .append_parameter(Parameter::new("VVENUE", venue_uid))
-                .done(),
-        );
-        self
-    }
+            /// Removes `LOCATION`.
+            pub fn remove_location(&mut self) -> &mut Self {
+                self.remove_property("LOCATION")
+            }
 
-    /// Set the LOCATION
-    /// 3.8.1.7.  Location
-    fn location(&mut self, location: &str) -> &mut Self {
-        self.add_property("LOCATION", location)
-    }
+            /// Gets `LOCATION`.
+            pub fn get_location(&self) -> Option<&str> {
+                self.property_value("LOCATION")
+            }
 
-    /// Removes the `LOCATION` property.
-    fn remove_location(&mut self) -> &mut Self {
-        self.remove_property("LOCATION")
-    }
+            /// Appends an `RDATE` property.
+            pub fn rdate<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_multi_property(date_time.into().to_property("RDATE"))
+            }
 
-    /// Gets the location
-    fn get_location(&self) -> Option<&str> {
-        self.property_value("LOCATION")
-    }
+            /// Appends an `EXDATE` property.
+            pub fn exdate<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_multi_property(date_time.into().to_property("EXDATE"))
+            }
 
-    /// Add an RDATE to this component
-    ///
-    /// [3.8.5.2.  Recurrence Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.2)
-    fn rdate<T: Into<DatePerhapsTime>>(&mut self, rdate: T) -> &mut Self {
-        self.append_multi_property(rdate.into().to_property("RDATE"))
-    }
-
-    /// Add an EXDATE
-    ///
-    /// [3.8.5.1.  Exception Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.1)
-    fn exdate<T: Into<DatePerhapsTime>>(&mut self, exdate: T) -> &mut Self {
-        self.append_multi_property(exdate.into().to_property("EXDATE"))
-    }
-
-    /// Set the ALARM
-    /// [3.6.6.  Alarm Component](https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.6)
-    fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
-        let alarm: Alarm = alarm.into();
-        self.append_component(alarm)
-    }
-}
-
-macro_rules! event_impl {
-    ($t:ty) => {
-        impl EventLike for $t {}
+            /// Appends an alarm.
+            pub fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
+                self.append_component(alarm.into())
+            }
+        }
     };
 }
 
@@ -616,10 +578,10 @@ macro_rules! component_impl {
 }
 
 component_impl! { Event, String::from("VEVENT") }
-event_impl! { Event }
+event_component_methods! { Event, "DTEND" }
 
 component_impl! { Todo , String::from("VTODO")}
-event_impl! { Todo}
+event_component_methods! { Todo, "DUE" }
 
 component_impl! { Venue , String::from("VVENUE")}
 component_impl! { Alarm, String::from("VALARM") }
