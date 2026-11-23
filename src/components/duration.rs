@@ -4,7 +4,7 @@ pub(crate) fn span_from_signed(duration: SignedDuration) -> Result<Span, String>
     Span::try_from(duration).map_err(|error| error.to_string())
 }
 
-pub(crate) fn format_duration(span: Span) -> Result<String, String> {
+pub(crate) fn format_duration(mut span: Span) -> Result<String, String> {
     if span.get_years() != 0
         || span.get_months() != 0
         || span.get_milliseconds() != 0
@@ -13,47 +13,19 @@ pub(crate) fn format_duration(span: Span) -> Result<String, String> {
     {
         return Err("iCalendar durations cannot contain years, months or subseconds".into());
     }
-    let sign = if span.is_negative() { "-" } else { "" };
-    let weeks = i64::from(span.get_weeks()).abs();
-    let days = i64::from(span.get_days()).abs();
-    let hours = i64::from(span.get_hours()).abs();
-    let minutes = span.get_minutes().abs();
-    let seconds = span.get_seconds().abs();
-    if weeks > 0 && (days > 0 || hours > 0 || minutes > 0 || seconds > 0) {
-        let days = weeks
-            .checked_mul(7)
-            .and_then(|weeks| weeks.checked_add(days))
-            .ok_or("duration exceeds iCalendar range")?;
-        let (span_hours, span_minutes, span_seconds) =
-            (span.get_hours(), span.get_minutes(), span.get_seconds());
-        let normalized = Span::new()
-            .try_days(if span.is_negative() { -days } else { days })
-            .and_then(|span| span.try_hours(span_hours))
-            .and_then(|span| span.try_minutes(span_minutes))
-            .and_then(|span| span.try_seconds(span_seconds))
-            .map_err(|error| error.to_string())?;
-        return format_duration(normalized);
+    if span.get_weeks() != 0
+        && (span.get_days() != 0
+            || span.get_hours() != 0
+            || span.get_minutes() != 0
+            || span.get_seconds() != 0)
+    {
+        let days = i64::from(span.get_weeks()) * 7 + i64::from(span.get_days());
+        span = span
+            .try_days(days)
+            .map_err(|error| error.to_string())?
+            .weeks(0);
     }
-    if weeks > 0 {
-        return Ok(format!("{sign}P{weeks}W"));
-    }
-    let mut result = format!("{sign}P");
-    if days > 0 {
-        result.push_str(&format!("{days}D"));
-    }
-    if hours > 0 || minutes > 0 || seconds > 0 || days == 0 {
-        result.push('T');
-        if hours > 0 {
-            result.push_str(&format!("{hours}H"));
-        }
-        if minutes > 0 {
-            result.push_str(&format!("{minutes}M"));
-        }
-        if seconds > 0 || (hours == 0 && minutes == 0) {
-            result.push_str(&format!("{seconds}S"));
-        }
-    }
-    Ok(result)
+    Ok(span.to_string())
 }
 
 pub(crate) fn parse_duration(value: &str) -> Option<Span> {
@@ -118,7 +90,7 @@ pub(crate) fn parse_duration(value: &str) -> Option<Span> {
 }
 
 #[cfg(test)]
-mod tests {
+mod test_duration {
     use super::*;
     use jiff::ToSpan as _;
 
@@ -139,7 +111,46 @@ mod tests {
         ] {
             assert!(parse_duration(value).is_none(), "{value}");
         }
-        assert!(format_duration(1.month()).is_err());
-        assert_eq!(format_duration(1.week().days(1)).unwrap(), "P8D");
+    }
+
+    #[test]
+    fn rejects_unsupported_units() {
+        for span in [
+            1.year(),
+            1.month(),
+            1.millisecond(),
+            1.microsecond(),
+            1.nanosecond(),
+        ] {
+            assert!(format_duration(span).is_err(), "{span}");
+        }
+    }
+
+    #[test]
+    fn formats_zero_and_negative_durations() {
+        assert_eq!(format_duration(Span::new()).unwrap(), "PT0S");
+        assert_eq!(format_duration(-2.weeks()).unwrap(), "-P2W");
+        assert_eq!(
+            format_duration(-1.day().hours(2).minutes(3).seconds(4)).unwrap(),
+            "-P1DT2H3M4S"
+        );
+    }
+
+    #[test]
+    fn normalizes_mixed_weeks() {
+        for (span, expected) in [
+            (1.week().days(1), "P8D"),
+            (1.week().hours(2), "P7DT2H"),
+            (1.week().minutes(3), "P7DT3M"),
+            (1.week().seconds(4), "P7DT4S"),
+            (-1.week().days(1).hours(2), "-P8DT2H"),
+        ] {
+            assert_eq!(format_duration(span).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn rejects_mixed_weeks_exceeding_day_range() {
+        assert!(format_duration(Span::new().weeks(1_000_000).days(1_000_000)).is_err());
     }
 }
