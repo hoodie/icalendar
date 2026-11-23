@@ -1,16 +1,15 @@
 #![cfg(feature = "parser")]
 use std::str::FromStr;
 
-use chrono::*;
 use icalendar::*;
 
 fn main() {
     let event = Event::new()
         .summary(";IMPORTANCE=very;test event")
         .description("here; I have something; really important to do")
-        .starts(Utc::now())
+        .starts(Timestamp::now())
         .class(Class::Confidential)
-        .ends(Utc::now() + Duration::days(1))
+        .ends(Timestamp::now() + 24.hours())
         .append_property(
             Property::new("TEST", "FOOBAR")
                 .add_parameter("IMPORTANCE", "very")

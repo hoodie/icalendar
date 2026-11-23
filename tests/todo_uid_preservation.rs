@@ -1,5 +1,5 @@
-use chrono::Utc;
 use icalendar::*;
+use jiff::Timestamp;
 use pretty_assertions::assert_eq;
 
 #[test]
@@ -10,7 +10,7 @@ fn uid_preserved_after_uncompleted() {
     let mut todo = Todo::new()
         .summary("Test Todo")
         .uid(uid)
-        .completed(Utc::now())
+        .completed(Timestamp::now())
         .percent_complete(100)
         .status(TodoStatus::Completed)
         .done();
@@ -39,7 +39,7 @@ fn uid_preserved_in_calendar() {
     let todo = Todo::new()
         .summary("Calendar Test Todo")
         .uid(uid)
-        .completed(Utc::now())
+        .completed(Timestamp::now())
         .percent_complete(100)
         .status(TodoStatus::Completed)
         .done();

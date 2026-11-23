@@ -374,9 +374,22 @@ impl From<TodoStatus> for Property {
     }
 }
 
-impl From<chrono::Duration> for Property {
-    fn from(duration: chrono::Duration) -> Self {
-        Property::new("DURATION", duration.to_string())
+impl From<jiff::Span> for Property {
+    fn from(duration: jiff::Span) -> Self {
+        Property::new(
+            "DURATION",
+            crate::components::duration::format_duration(duration)
+                .unwrap_or_else(|_| duration.to_string()),
+        )
+    }
+}
+
+impl TryFrom<jiff::SignedDuration> for Property {
+    type Error = String;
+
+    fn try_from(duration: jiff::SignedDuration) -> Result<Self, Self::Error> {
+        let span = crate::components::duration::span_from_signed(duration)?;
+        Ok(span.into())
     }
 }
 

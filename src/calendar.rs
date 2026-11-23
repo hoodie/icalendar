@@ -1,15 +1,40 @@
-use chrono::Duration;
+use crate::components::duration::{format_duration, parse_duration};
+use jiff::{
+    Span, ZonedDateTime,
+    tz::{Disambiguation, TimeZone},
+};
 use std::{fmt, mem, ops::Deref};
 
-#[cfg(feature = "recurrence")]
-use crate::components::build_recurrence_set;
-use crate::{Parameter, Property, components::*};
+use crate::{CalendarDateTime, DatePerhapsTime, Parameter, Property, components::*};
+
+fn resolve_date(
+    value: DatePerhapsTime,
+    calendar_tz: Option<&str>,
+    policy: Disambiguation,
+) -> Option<ZonedDateTime> {
+    let fallback = match &value {
+        DatePerhapsTime::Date(_) | DatePerhapsTime::DateTime(CalendarDateTime::Floating(_)) => {
+            TimeZone::get(calendar_tz?).ok()?
+        }
+        _ => TimeZone::UTC,
+    };
+    value.to_zoned_datetime_with(&fallback, policy)
+}
+
+fn resolve_duration_end(
+    start: Option<DatePerhapsTime>,
+    duration: Option<&str>,
+    calendar_tz: Option<&str>,
+    policy: Disambiguation,
+) -> Option<ZonedDateTime> {
+    let start = resolve_date(start?, calendar_tz, policy)?;
+    start.checked_add(parse_duration(duration?)?).ok()
+}
 
 /// Accepted by [`Calendar::timezone`].
 ///
 /// Implemented for:
 /// - `&str` and `String` — any IANA timezone name (not validated at compile time)
-/// - `chrono_tz::Tz` — compile-time validated (requires the `chrono-tz` feature)
 ///
 /// This trait is sealed; you cannot implement it for your own types.
 pub trait IntoTimezoneId: private::Sealed {
@@ -21,8 +46,6 @@ mod private {
     pub trait Sealed {}
     impl Sealed for &str {}
     impl Sealed for String {}
-    #[cfg(feature = "chrono-tz")]
-    impl Sealed for chrono_tz::Tz {}
 }
 
 impl IntoTimezoneId for &str {
@@ -34,13 +57,6 @@ impl IntoTimezoneId for &str {
 impl IntoTimezoneId for String {
     fn into_timezone_id(self) -> String {
         self
-    }
-}
-
-#[cfg(feature = "chrono-tz")]
-impl IntoTimezoneId for chrono_tz::Tz {
-    fn into_timezone_id(self) -> String {
-        self.name().to_owned()
     }
 }
 
@@ -230,15 +246,7 @@ impl Calendar {
 
     /// Set the `X-WR-TIMEZONE` property (the calendar's default timezone).
     ///
-    /// Accepts a plain IANA string or, with the `chrono-tz` feature, a `chrono_tz::Tz`
-    /// value. Plain strings are stored as-is without validation; if you pass an invalid
-    /// timezone name the calendar will serialise incorrectly. Use `chrono_tz::Tz` for
-    /// compile-time safety.
-    ///
-    /// # Deprecation notice
-    ///
-    /// String support will be removed in a future version. Migrate to `chrono_tz::Tz`
-    /// (enable the `chrono-tz` feature) to avoid a breaking change.
+    /// Strings are stored as-is to preserve custom TZIDs.
     ///
     /// ```
     /// # use icalendar::Calendar;
@@ -259,31 +267,35 @@ impl Calendar {
         self.property_value("X-WR-TIMEZONE")
     }
 
-    /// Set the `REFRESH-INTERVAL` and `X-PUBLISHED-TTL` `Property`s
-    pub fn ttl(&mut self, duration: &Duration) -> &mut Self {
-        let duration_string = duration.to_string();
+    /// Set `REFRESH-INTERVAL` and `X-PUBLISHED-TTL` if the duration is valid.
+    pub fn ttl<D: TryInto<Span>>(&mut self, duration: D) -> Result<&mut Self, String>
+    where
+        D::Error: fmt::Display,
+    {
+        let duration = duration.try_into().map_err(|error| error.to_string())?;
+        let duration_string = format_duration(duration)?;
+        if !duration.is_positive() {
+            return Err("TTL must be positive".into());
+        }
         self.append_property(
             Property::new("REFRESH-INTERVAL", &duration_string)
                 .append_parameter(Parameter::new("VALUE", "DURATION"))
                 .done(),
         );
         self.append_property(Property::new("X-PUBLISHED-TTL", &duration_string));
-        self
+        Ok(self)
     }
 
     /// Gets the value of the `REFRESH-INTERVAL` or `X-PUBLISHED-TTL` property.
-    pub fn get_ttl(&self) -> Option<Duration> {
+    pub fn get_ttl(&self) -> Option<Span> {
         self.property_value("REFRESH-INTERVAL")
-            .and_then(|refresh_interval| iso8601::duration(refresh_interval).ok())
+            .and_then(parse_duration)
+            .filter(Span::is_positive)
             .or_else(|| {
                 self.property_value("X-PUBLISHED-TTL")
-                    .and_then(|published_ttl| iso8601::duration(published_ttl).ok())
+                    .and_then(parse_duration)
+                    .filter(Span::is_positive)
             })
-            .map(std::time::Duration::from)
-            .map(Duration::from_std)
-            .transpose()
-            .ok()
-            .flatten()
     }
 
     /// End of builder pattern.
@@ -316,12 +328,6 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Event` components.
-    ///
-    /// For timezone-aware recurrence on all-day events, use
-    /// [`calendar_events()`](Calendar::calendar_events) instead.
-    ///
-    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarEvent<'_>>`
-    // and drop calendar_events().
     pub fn events(&self) -> impl Iterator<Item = &Event> {
         self.components
             .iter()
@@ -342,12 +348,6 @@ impl Calendar {
     }
 
     /// Returns an iterator over all `Todo` components.
-    ///
-    /// For timezone-aware recurrence on all-day todos, use
-    /// [`calendar_todos()`](Calendar::calendar_todos) instead.
-    ///
-    // TODO: next semver-major, change return type to `impl Iterator<Item = CalendarTodo<'_>>`
-    // and drop calendar_todos().
     pub fn todos(&self) -> impl Iterator<Item = &Todo> {
         self.components
             .iter()
@@ -368,9 +368,6 @@ impl Calendar {
     }
 
     /// Like [`events()`](Calendar::events) but each item carries the calendar's timezone.
-    ///
-    /// Needed for timezone-aware recurrence on all-day events.
-    #[cfg(feature = "recurrence")]
     pub fn calendar_events(&self) -> impl Iterator<Item = CalendarEvent<'_>> {
         let tz = self.get_timezone();
         self.events().map(move |event| CalendarEvent {
@@ -380,9 +377,6 @@ impl Calendar {
     }
 
     /// Like [`todos()`](Calendar::todos) but each item carries the calendar's timezone.
-    ///
-    /// Needed for timezone-aware recurrence on all-day todos.
-    #[cfg(feature = "recurrence")]
     pub fn calendar_todos(&self) -> impl Iterator<Item = CalendarTodo<'_>> {
         let tz = self.get_timezone();
         self.todos().map(move |todo| CalendarTodo {
@@ -394,21 +388,19 @@ impl Calendar {
 
 /// Borrowed view of an [`Event`] paired with its calendar's timezone.
 ///
-/// Obtained from [`Calendar::calendar_events`]. The timezone is needed to anchor
-/// DATE-only `DTSTART` values when expanding recurrences.
+/// Obtained from [`Calendar::calendar_events`]. The timezone is available to
+/// resolve floating calendar values.
 ///
 /// ## Serialisation
 ///
 /// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
 /// Serialise the inner event via [`.event()`](CalendarEvent::event).
-#[cfg(feature = "recurrence")]
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarEvent<'a> {
     event: &'a Event,
     calendar_tz: Option<&'a str>,
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> CalendarEvent<'a> {
     /// The underlying event.
     pub fn event(&self) -> &'a Event {
@@ -420,14 +412,35 @@ impl<'a> CalendarEvent<'a> {
         self.calendar_tz
     }
 
-    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
-    #[cfg(feature = "recurrence")]
-    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
-        build_recurrence_set(self.event, self.calendar_tz)
+    /// Resolve `DTSTART` using the calendar timezone for floating and date-only values.
+    pub fn start(&self) -> Option<ZonedDateTime> {
+        self.start_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve `DTSTART` with the specified gap and fold policy.
+    pub fn start_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        resolve_date(self.event.get_start()?, self.calendar_tz, policy)
+    }
+
+    /// Resolve the end from `DTEND` or `DTSTART` plus `DURATION`, using the calendar timezone.
+    pub fn end(&self) -> Option<ZonedDateTime> {
+        self.end_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve the event end with the specified gap and fold policy.
+    pub fn end_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        if let Some(end) = self.event.get_end() {
+            return resolve_date(end, self.calendar_tz, policy);
+        }
+        resolve_duration_end(
+            self.event.get_start(),
+            self.event.property_value("DURATION"),
+            self.calendar_tz,
+            policy,
+        )
     }
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> Deref for CalendarEvent<'a> {
     type Target = Event;
     fn deref(&self) -> &Event {
@@ -437,24 +450,21 @@ impl<'a> Deref for CalendarEvent<'a> {
 
 /// Borrowed view of a [`Todo`] paired with its calendar's timezone.
 ///
-/// Obtained from [`Calendar::calendar_todos`]. The timezone is needed to anchor
-/// DATE-only `DTSTART` values when expanding recurrences.
+/// Obtained from [`Calendar::calendar_todos`]. The timezone is available to
+/// resolve floating calendar values.
 ///
 /// ## Serialisation
 ///
 /// Doesn't implement `Serialize`/`Deserialize` - it's a view, not owned data.
 /// Serialise the inner todo via [`.todo()`](CalendarTodo::todo).
-#[cfg(feature = "recurrence")]
 #[derive(Debug, Clone, Copy)]
 pub struct CalendarTodo<'a> {
     todo: &'a Todo,
     calendar_tz: Option<&'a str>,
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> CalendarTodo<'a> {
     /// The underlying todo.
-    #[cfg(feature = "recurrence")]
     pub fn todo(&self) -> &'a Todo {
         self.todo
     }
@@ -464,14 +474,35 @@ impl<'a> CalendarTodo<'a> {
         self.calendar_tz
     }
 
-    /// Like [`EventLike::get_recurrence`] but anchors DATE-only values to the calendar timezone.
-    #[cfg(feature = "recurrence")]
-    pub fn get_recurrence(&self) -> Result<rrule::RRuleSet, crate::RecurrenceError> {
-        build_recurrence_set(self.todo, self.calendar_tz)
+    /// Resolve `DTSTART` using the calendar timezone for floating and date-only values.
+    pub fn start(&self) -> Option<ZonedDateTime> {
+        self.start_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve `DTSTART` with the specified gap and fold policy.
+    pub fn start_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        resolve_date(self.todo.get_start()?, self.calendar_tz, policy)
+    }
+
+    /// Resolve the todo's `DUE` or `DTSTART` plus `DURATION`, using the calendar timezone.
+    pub fn due(&self) -> Option<ZonedDateTime> {
+        self.due_with(Disambiguation::Compatible)
+    }
+
+    /// Resolve the todo due date with the specified gap and fold policy.
+    pub fn due_with(&self, policy: Disambiguation) -> Option<ZonedDateTime> {
+        if let Some(due) = self.todo.get_due() {
+            return resolve_date(due, self.calendar_tz, policy);
+        }
+        resolve_duration_end(
+            self.todo.get_start(),
+            self.todo.property_value("DURATION"),
+            self.calendar_tz,
+            policy,
+        )
     }
 }
 
-#[cfg(feature = "recurrence")]
 impl<'a> Deref for CalendarTodo<'a> {
     type Target = Todo;
     fn deref(&self) -> &Todo {
@@ -550,6 +581,36 @@ fn from_adds_default_properties() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jiff::{SignedDuration, ToSpan as _};
+
+    #[test]
+    fn ttl_rejects_invalid_durations_without_changing_properties() {
+        let mut calendar = Calendar::new();
+        calendar.ttl(1.day()).unwrap();
+        let properties = calendar.properties.clone();
+        for duration in [1.month(), 1.millisecond(), -1.hour(), 0.seconds()] {
+            assert!(calendar.ttl(duration).is_err(), "{duration}");
+            assert_eq!(calendar.properties, properties);
+        }
+    }
+
+    #[test]
+    fn ttl_uses_strict_icalendar_durations() {
+        let mut calendar = Calendar::new();
+        calendar.ttl(1.day()).unwrap();
+        assert_eq!(calendar.get_ttl().unwrap().fieldwise(), 1.day().fieldwise());
+        assert_eq!(calendar.property_value("REFRESH-INTERVAL"), Some("P1D"));
+        let mut signed = Calendar::new();
+        signed.ttl(SignedDuration::from_hours(24)).unwrap();
+        assert_eq!(signed.property_value("REFRESH-INTERVAL"), Some("PT86400S"));
+        assert!(signed.ttl(1.month()).is_err());
+        assert!(signed.ttl(-1.hour()).is_err());
+        assert!(signed.ttl(0.seconds()).is_err());
+        assert_eq!(signed.property_value("REFRESH-INTERVAL"), Some("PT86400S"));
+        let mut invalid = Calendar::new();
+        invalid.append_property(Property::new("REFRESH-INTERVAL", "P1W2D"));
+        assert!(invalid.get_ttl().is_none());
+    }
 
     #[test]
     fn calendar_extend_components() {
@@ -592,13 +653,6 @@ mod tests {
     #[test]
     fn timezone_accepts_str() {
         let calendar = Calendar::new().timezone("Europe/Berlin").done();
-        assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
-    }
-
-    #[test]
-    #[cfg(feature = "chrono-tz")]
-    fn timezone_accepts_chrono_tz() {
-        let calendar = Calendar::new().timezone(chrono_tz::Europe::Berlin).done();
         assert_eq!(calendar.get_timezone(), Some("Europe/Berlin"));
     }
 

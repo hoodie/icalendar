@@ -1,4 +1,3 @@
-use chrono::*;
 use icalendar::*;
 use pretty_assertions::assert_eq;
 
@@ -36,21 +35,28 @@ fn test_alarm_to_string() {
         .uid("uid4@example.com")
         .add_property("DTSTAMP", "19980130T134500Z")
         .sequence(2)
-        .starts(Utc.with_ymd_and_hms(1998, 1, 30, 13, 45, 0).unwrap())
-        .due(
-            NaiveDate::from_ymd_opt(1998, 4, 15)
+        .starts(
+            date(1998, 1, 30)
+                .at(13, 45, 0, 0)
+                .in_tz("UTC")
                 .unwrap()
-                .and_hms_opt(0, 0, 0)
-                .unwrap(),
+                .timestamp(),
         )
+        .due(date(1998, 4, 15).at(0, 0, 0, 0))
         .status(TodoStatus::NeedsAction)
         .summary("Submit Income Taxes")
         .append_component(
-            Alarm::audio(Utc.with_ymd_and_hms(1998, 4, 3, 12, 0, 0).unwrap())
-                .duration_and_repeat(chrono::Duration::hours(1), 4)
-                .uid("OverwriteForConsistency")
-                .add_property("DTSTAMP", "19980130T134500Z")
-                .done(),
+            Alarm::audio(
+                date(1998, 4, 3)
+                    .at(12, 0, 0, 0)
+                    .in_tz("UTC")
+                    .unwrap()
+                    .timestamp(),
+            )
+            .duration_and_repeat(3600.seconds(), 4)
+            .uid("OverwriteForConsistency")
+            .add_property("DTSTAMP", "19980130T134500Z")
+            .done(),
         )
         .done();
     calendar.push(todo);

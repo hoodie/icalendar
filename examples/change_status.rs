@@ -1,13 +1,12 @@
 use std::io;
 
-use chrono::{Duration, Utc};
 use icalendar::*;
 
 fn buy_milk() -> Todo {
     Todo::new()
         .summary("Buy milk")
         .description("Get 2% milk from the store")
-        .completed(Utc::now())
+        .completed(Timestamp::now())
         .percent_complete(100)
         .status(TodoStatus::Completed)
         .done()
@@ -17,8 +16,8 @@ fn team_meeting() -> Event {
     Event::new()
         .summary("Team Meeting")
         .description("Weekly team status update")
-        .starts(Utc::now())
-        .ends(Utc::now() + Duration::hours(1))
+        .starts(Timestamp::now())
+        .ends(Timestamp::now() + 1.hour())
         .status(EventStatus::Cancelled)
         .done()
 }

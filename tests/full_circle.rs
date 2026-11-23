@@ -1,9 +1,7 @@
 #![cfg(feature = "parser")]
 use std::str::FromStr;
 
-use chrono::*;
 use icalendar::*;
-// use pretty_assertions::assert_eq;
 
 fn get_summary(calendar: &Calendar) -> &str {
     calendar.components[0]
@@ -27,9 +25,9 @@ fn init_test_event() -> (&'static str, &'static str, Calendar) {
     let event = Event::new()
         .summary(summary)
         .description(description)
-        .starts(Utc::now())
+        .starts(Timestamp::now())
         .class(Class::Confidential)
-        .ends(Utc::now() + Duration::days(1))
+        .ends(Timestamp::now() + 24.hours())
         .append_property(
             Property::new("TEST", "FOOBAR")
                 .add_parameter("IMPORTANCE", "very")

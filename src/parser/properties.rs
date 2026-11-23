@@ -254,7 +254,7 @@ fn text_list_values_keep_their_separators() {
 
 #[test]
 fn text_list_vec_roundtrip() {
-    use crate::{Component, Event, EventLike, Todo};
+    use crate::{Component, Event, Todo};
     let tricky = vec!["Room A, 2nd floor", "a;b", r"back\slash", "plain"];
     let calendar = crate::Calendar::new()
         .push(
@@ -288,7 +288,6 @@ fn text_list_vec_roundtrip() {
 
 #[test]
 fn text_list_parsed_from_input() {
-    use crate::EventLike;
     let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nRESOURCES:Projector,Room A\\, 2nd floor\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     let calendar: crate::Calendar = input.parse().unwrap();
     let event = calendar.components.first().unwrap().as_event().unwrap();
@@ -300,7 +299,6 @@ fn text_list_parsed_from_input() {
 
 #[test]
 fn text_list_merges_repeated_lines_from_input() {
-    use crate::EventLike;
     let input = "BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nUID:1\r\nCATEGORIES:Work,Personal\r\nCATEGORIES:Urgent\\, maybe\r\nCATEGORIES:Later\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n";
     let calendar: crate::Calendar = input.parse().unwrap();
     let event = calendar.components.first().unwrap().as_event().unwrap();

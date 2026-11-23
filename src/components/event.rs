@@ -16,6 +16,37 @@ impl Event {
         Self::new().uid(uid).done()
     }
 
+    /// Set a date-only start and its exclusive next-day end.
+    ///
+    /// # Side effects
+    /// Removes `DURATION` and replaces `DTSTART` and `DTEND`. If the next day
+    /// cannot be represented, removes `DTEND` instead.
+    pub fn all_day(&mut self, date: Date) -> &mut Self {
+        self.remove_property("DURATION");
+        self.append_property(naive_date_to_property(date, "DTSTART"));
+        if let Ok(end_date) = date.checked_add(jiff::Span::new().days(1)) {
+            self.append_property(naive_date_to_property(end_date, "DTEND"));
+        } else {
+            // A date-only DTSTART without DTEND or DURATION defaults to one day.
+            self.remove_property("DTEND");
+        }
+        self
+    }
+
+    /// Set the non-inclusive `DTEND` of the event.
+    ///
+    /// # Side effects
+    /// Removes `DURATION`.
+    pub fn ends<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+        self.remove_property("DURATION")
+            .append_property(date_time.into().to_property("DTEND"))
+    }
+
+    /// Remove `DTEND`.
+    pub fn remove_ends(&mut self) -> &mut Self {
+        self.remove_property("DTEND")
+    }
+
     /// End of builder pattern.
     /// copies over everything
     pub fn done(&mut self) -> Self {

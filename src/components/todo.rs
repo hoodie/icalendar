@@ -46,10 +46,14 @@ impl Todo {
 
     /// Set the [`DUE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.3) property
     ///
-    /// See [`CalendarDateTime`] for info how are different [`chrono`] types converted automatically.
+    /// See [`CalendarDateTime`](`crate::CalendarDateTime`) for the supported date-time forms.
+    ///
+    /// # Side effects
+    /// Setting `DUE` will remove `DURATION`.
     pub fn due<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
         let calendar_dt: DatePerhapsTime = dt.into();
-        self.append_property(calendar_dt.to_property("DUE"))
+        self.remove_property("DURATION")
+            .append_property(calendar_dt.to_property("DUE"))
     }
 
     /// Removes the [`DUE`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.3) property
@@ -66,7 +70,7 @@ impl Todo {
     ///
     /// Per [RFC 5545, Section 3.8.2.1](https://tools.ietf.org/html/rfc5545#section-3.8.2.1), this
     /// must be a date-time in UTC format.
-    pub fn completed(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    pub fn completed(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("COMPLETED", format_utc_date_time(dt))
     }
 
@@ -79,7 +83,7 @@ impl Todo {
     ///
     /// Per [RFC 5545, Section 3.8.2.1](https://tools.ietf.org/html/rfc5545#section-3.8.2.1), this
     /// must be a date-time in UTC format.
-    pub fn get_completed(&self) -> Option<DateTime<Utc>> {
+    pub fn get_completed(&self) -> Option<Timestamp> {
         let completed = self.property_value("COMPLETED")?;
         parse_utc_date_time(completed)
     }
@@ -113,10 +117,10 @@ impl Todo {
     /// # Example
     /// ```
     /// use icalendar::{Todo, Component, TodoStatus};
-    /// use chrono::Utc;
+    /// use jiff::Timestamp;
     ///
     /// let mut todo = Todo::new()
-    ///     .completed(Utc::now())
+    ///     .completed(Timestamp::now())
     ///     .percent_complete(100)
     ///     .status(TodoStatus::Completed)
     ///     .done();
@@ -139,7 +143,7 @@ impl Todo {
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone as _;
+    use jiff::{civil::date, tz::TimeZone};
 
     use super::*;
 
@@ -154,7 +158,11 @@ mod tests {
 
     #[test]
     fn get_properties_set() {
-        let completed = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let completed = date(2001, 3, 13)
+            .at(14, 15, 16, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
         let todo = Todo::new()
             .percent_complete(42)
             .status(TodoStatus::NeedsAction)
@@ -167,7 +175,11 @@ mod tests {
 
     #[test]
     fn get_properties_remove() {
-        let completed = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let completed = date(2001, 3, 13)
+            .at(14, 15, 16, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
         let mut todo = Todo::new()
             .percent_complete(42)
             .status(TodoStatus::NeedsAction)
@@ -187,17 +199,18 @@ mod tests {
 
     #[test]
     fn get_date_times_naive() {
-        let naive_date_time = NaiveDate::from_ymd_opt(2001, 3, 13)
-            .unwrap()
-            .and_hms_opt(14, 15, 16)
-            .unwrap();
+        let naive_date_time = date(2001, 3, 13).at(14, 15, 16, 0);
         let todo = Todo::new().due(naive_date_time).done();
         assert_eq!(todo.get_due(), Some(naive_date_time.into()));
     }
 
     #[test]
     fn get_date_times_utc() {
-        let utc_date_time = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let utc_date_time = date(2001, 3, 13)
+            .at(14, 15, 16, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
         let todo = Todo::new()
             .due(utc_date_time)
             .completed(utc_date_time)
@@ -208,14 +221,18 @@ mod tests {
 
     #[test]
     fn get_dates_naive() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let todo = Todo::new().due(naive_date).done();
         assert_eq!(todo.get_due(), Some(naive_date.into()));
     }
 
     #[test]
     fn test_mark_uncompleted() {
-        let completed = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let completed = date(2001, 3, 13)
+            .at(14, 15, 16, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
 
         // Create a completed todo
         let mut todo = Todo::new()

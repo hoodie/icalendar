@@ -1,15 +1,13 @@
-use chrono_tz::Europe::Berlin;
 use icalendar::*;
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let standup = Event::new()
         .uid("weekly_standup_2026@example.com")
         .summary("Weekly Team Standup")
         .description("Every Wednesday 10:00–11:00, Berlin time.")
-        .starts(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 7, 10, 0, Berlin).unwrap())
-        .ends(CalendarDateTime::from_ymd_hm_tzid(2026, 1, 7, 11, 0, Berlin).unwrap())
-        .recurrence(RRule::new(Frequency::Weekly).by_weekday(vec![NWeekday::Every(Weekday::Wed)]))
-        .unwrap()
+        .starts(date(2026, 1, 7).at(10, 0, 0, 0).in_tz("Europe/Berlin")?)
+        .ends(date(2026, 1, 7).at(11, 0, 0, 0).in_tz("Europe/Berlin")?)
+        .add_property("RRULE", "FREQ=WEEKLY;BYDAY=WE")
         .done();
 
     let standup_rescheduled = Event::new()
@@ -17,10 +15,10 @@ fn main() {
         .summary("Weekly Team Standup (rescheduled — public holiday)")
         .description("Moved from Wed Apr 1 to Thu Apr 2 because Apr 1 is a public holiday.")
         // The original slot this component replaces — NOT the new time:
-        .recurrence_id(CalendarDateTime::from_ymd_hm_tzid(2026, 4, 1, 10, 0, Berlin).unwrap())
+        .recurrence_id(date(2026, 4, 1).at(10, 0, 0, 0).in_tz("Europe/Berlin")?)
         // The new time:
-        .starts(CalendarDateTime::from_ymd_hm_tzid(2026, 4, 2, 10, 0, Berlin).unwrap())
-        .ends(CalendarDateTime::from_ymd_hm_tzid(2026, 4, 2, 11, 0, Berlin).unwrap())
+        .starts(date(2026, 4, 2).at(10, 0, 0, 0).in_tz("Europe/Berlin")?)
+        .ends(date(2026, 4, 2).at(11, 0, 0, 0).in_tz("Europe/Berlin")?)
         .done();
 
     let mut calendar = Calendar::new();
@@ -28,4 +26,5 @@ fn main() {
     calendar.push(standup_rescheduled);
 
     println!("{calendar}");
+    Ok(())
 }

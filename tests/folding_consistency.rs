@@ -1,5 +1,4 @@
 #![cfg(feature = "parser")]
-use chrono::{Duration, Utc};
 use icalendar::*;
 use pretty_assertions::assert_eq;
 
@@ -10,11 +9,11 @@ fn test_folding_consistency() {
         Event::new()
             .summary("test event")
             .description(include_str!("lorem.txt"))
-            .timestamp(Utc::now())
+            .timestamp(Timestamp::now())
             .uid("1234")
-            .starts(Utc::now())
+            .starts(Timestamp::now())
             .class(Class::Confidential)
-            .ends(Utc::now() + Duration::days(1))
+            .ends(Timestamp::now() + 24.hours())
             .done(),
     ]);
     let serialized_1 = parsed_0.to_string();

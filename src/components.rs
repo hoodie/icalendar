@@ -1,6 +1,4 @@
-#[cfg(feature = "recurrence")]
-use crate::recurrence::RecurrenceError;
-use chrono::{DateTime, NaiveDate, Utc};
+use jiff::{Timestamp, civil::Date};
 use uuid::Uuid;
 
 use std::{collections::BTreeMap, fmt, mem};
@@ -14,13 +12,16 @@ use date_time::{format_utc_date_time, naive_date_to_property, parse_utc_date_tim
 
 pub mod alarm;
 pub(crate) mod date_time;
+pub(crate) mod duration;
 mod event;
 mod other;
 mod todo;
 mod venue;
 
 use alarm::*;
-use date_time::{CalendarDateTime, DatePerhapsTime};
+#[cfg(test)]
+use date_time::CalendarDateTime;
+use date_time::DatePerhapsTime;
 pub use event::*;
 pub use other::*;
 pub use todo::*;
@@ -117,7 +118,7 @@ pub trait Component {
         write_crlf!(out, "BEGIN:{}", self.component_kind())?;
 
         if !self.properties().contains_key("DTSTAMP") {
-            let now = Utc::now();
+            let now = Timestamp::now();
             write_crlf!(out, "DTSTAMP:{}", format_utc_date_time(now))?;
         }
 
@@ -191,7 +192,7 @@ pub trait Component {
     /// Set the [`DTSTAMP`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2) [`Property`]
     ///
     /// This must be a UTC date-time value.
-    fn timestamp(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    fn timestamp(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("DTSTAMP", format_utc_date_time(dt))
     }
 
@@ -201,7 +202,7 @@ pub trait Component {
     }
 
     /// Gets the [`DTSTAMP`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.2) property.
-    fn get_timestamp(&self) -> Option<DateTime<Utc>> {
+    fn get_timestamp(&self) -> Option<Timestamp> {
         parse_utc_date_time(self.property_value("DTSTAMP")?)
     }
 
@@ -222,9 +223,10 @@ pub trait Component {
 
     /// Defines the relative priority.
     ///
-    /// Ranges from 0 to 10, larger values will be clamped to 10
+    /// Ranges from 0 to 10, larger values will be clamped to 9.
+    /// 9 is the lowest priority.
     fn priority(&mut self, priority: u32) -> &mut Self {
-        let priority = std::cmp::min(priority, 10);
+        let priority = std::cmp::min(priority, 9);
         self.add_property("PRIORITY", priority.to_string())
     }
 
@@ -361,7 +363,7 @@ pub trait Component {
     /// Set the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) [`Property`]
     ///
     /// This must be a UTC date-time value.
-    fn last_modified(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    fn last_modified(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("LAST-MODIFIED", format_utc_date_time(dt))
     }
 
@@ -371,14 +373,14 @@ pub trait Component {
     }
 
     /// Gets the [`LAST-MODIFIED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.3) property.
-    fn get_last_modified(&self) -> Option<DateTime<Utc>> {
+    fn get_last_modified(&self) -> Option<Timestamp> {
         parse_utc_date_time(self.property_value("LAST-MODIFIED")?)
     }
 
     /// Set the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) [`Property`]
     ///
     /// This must be a UTC date-time value.
-    fn created(&mut self, dt: DateTime<Utc>) -> &mut Self {
+    fn created(&mut self, dt: Timestamp) -> &mut Self {
         self.add_property("CREATED", format_utc_date_time(dt))
     }
 
@@ -388,276 +390,110 @@ pub trait Component {
     }
 
     /// Gets the [`CREATED`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.7.1) property.
-    fn get_created(&self) -> Option<DateTime<Utc>> {
+    fn get_created(&self) -> Option<Timestamp> {
         parse_utc_date_time(self.property_value("CREATED")?)
     }
 }
 
-/// Common trait of [`Event`] and [`Todo`]
-pub trait EventLike: Component {
-    /// Appends a [`CATEGORIES`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.2) property.
-    ///
-    /// Each item is escaped, so it may contain commas.
-    fn categories<I, S>(&mut self, categories: I) -> &mut Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        self.append_multi_property(Property::new("CATEGORIES", join_text_list(categories)))
-    }
-
-    /// Gets all categories, across every `CATEGORIES` property.
-    fn get_categories(&self) -> Option<Vec<String>> {
-        get_text_list(self, "CATEGORIES")
-    }
-
-    /// Appends a [`RESOURCES`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.1.10) property.
-    ///
-    /// Each item is escaped, so it may contain commas.
-    fn resources<I, S>(&mut self, resources: I) -> &mut Self
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str>,
-    {
-        self.append_multi_property(Property::new("RESOURCES", join_text_list(resources)))
-    }
-
-    /// Gets all resources, across every `RESOURCES` property.
-    fn get_resources(&self) -> Option<Vec<String>> {
-        get_text_list(self, "RESOURCES")
-    }
-
-    /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
-    ///
-    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
-    fn starts<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
-        let calendar_dt = dt.into();
-        self.append_property(calendar_dt.to_property("DTSTART"))
-    }
-
-    /// removes the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
-    fn remove_starts(&mut self) -> &mut Self {
-        self.remove_property("DTSTART")
-    }
-
-    /// Set the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
-    ///
-    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
-    fn ends<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
-        let calendar_dt = dt.into();
-        self.append_property(calendar_dt.to_property("DTEND"))
-    }
-
-    /// Removes the [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`]
-    fn remove_ends(&mut self) -> &mut Self {
-        self.remove_property("DTEND")
-    }
-
-    /// Sets the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
-    /// property.
-    ///
-    /// See [`DatePerhapsTime`] for info how are different [`chrono`] types converted automatically.
-    fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, dt: T) -> &mut Self {
-        let calendar_dt = dt.into();
-        self.append_property(calendar_dt.to_property("RECURRENCE-ID"))
-    }
-
-    /// Removes the [`RECURRENCE-ID`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.4.4)
-    fn remove_recurrence_id(&mut self) -> &mut Self {
-        self.remove_property("RECURRENCE-ID")
-    }
-
-    /// Set the [`DTSTART`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.4) [`Property`]
-    /// and [`DTEND`](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.2.2) [`Property`],
-    /// date only
-    fn all_day(&mut self, date: NaiveDate) -> &mut Self {
-        self.append_property(naive_date_to_property(date, "DTSTART"))
-            .append_property(naive_date_to_property(date, "DTEND"))
-    }
-
-    /// Set the LOCATION with a VVENUE UID
-    /// iCalender venue draft
-    fn venue(&mut self, location: &str, venue_uid: &str) -> &mut Self {
-        self.append_property(
-            Property::new("LOCATION", location)
-                .append_parameter(Parameter::new("VVENUE", venue_uid))
-                .done(),
-        );
-        self
-    }
-
-    /// Set the LOCATION
-    /// 3.8.1.7.  Location
-    fn location(&mut self, location: &str) -> &mut Self {
-        self.add_property("LOCATION", location)
-    }
-
-    /// Removes the `LOCATION` property.
-    fn remove_location(&mut self) -> &mut Self {
-        self.remove_property("LOCATION")
-    }
-
-    /// Gets the location
-    fn get_location(&self) -> Option<&str> {
-        self.property_value("LOCATION")
-    }
-
-    /// Set recurrence rules from an [`UnvalidatedRRule`](crate::UnvalidatedRRule).
-    ///
-    /// The `DTSTART` of this component is used as the start date for the recurrence rule,
-    /// so `.starts()` or `.all_day()` must be called before `.recurrence()`.
-    ///
-    /// Returns `Err` if `DTSTART` is missing, the timezone name is unrecognised, or
-    /// the rule fails rrule's own validation.
-    #[cfg(feature = "recurrence")]
-    fn recurrence(&mut self, rrule: crate::UnvalidatedRRule) -> Result<&mut Self, RecurrenceError> {
-        // Derive dt_start from whatever DTSTART is already on the component.
-        let dt_start_prop = self
-            .properties()
-            .get("DTSTART")
-            .ok_or(RecurrenceError::MissingDtStart)?;
-
-        let dt_start = crate::recurrence::dt_start_to_rrule_datetime(dt_start_prop)?;
-
-        let rruleset = rrule.build(dt_start)?;
-
-        let rrule_str = rruleset
-            .get_rrule()
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n");
-
-        self.add_property("RRULE", rrule_str);
-
-        Ok(self)
-    }
-
-    // /// Get recurrence rules.
-    // ///
-    // /// Returns `None` if no `RRULE` property is present on this component, or if the
-    // /// rule could not be parsed. Use [`try_recurrence`](EventLike::try_recurrence) if
-    // /// you need to distinguish between the two cases or want to inspect the parse error.
-    // #[cfg(feature = "recurrence")]
-    // fn get_recurrence(&self) -> Option<rrule::RRuleSet> {
-    //     self.try_recurrence()?.ok()
-    // }
-
-    /// Builds an [`rrule::RRuleSet`] from `DTSTART`, `RRULE`, `RDATE`, and `EXDATE`.
-    ///
-    /// For DATE-only `DTSTART` values, pass through a [`CalendarEvent`](crate::CalendarEvent)
-    /// or [`CalendarTodo`](crate::CalendarTodo) if you want midnight anchored to the
-    /// calendar's timezone - otherwise the `rrule` crate treats it as local time.
-    ///
-    /// Errors on missing or malformed `DTSTART`, or invalid `RRULE` syntax.
-    ///
-    /// With no `RRULE`, the set still yields `DTSTART` as a single occurrence
-    /// (via an implicit `RDATE`), per RFC 5545 §3.6.1.
-    #[cfg(feature = "recurrence")]
-    fn get_recurrence(&self) -> Result<rrule::RRuleSet, RecurrenceError> {
-        build_recurrence_set(self, None)
-    }
-
-    /// Add an RDATE to this component
-    ///
-    /// [3.8.5.2.  Recurrence Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.2)
-    fn rdate<T: Into<DatePerhapsTime>>(&mut self, rdate: T) -> &mut Self {
-        self.append_multi_property(rdate.into().to_property("RDATE"))
-    }
-
-    /// Add an EXDATE
-    ///
-    /// [3.8.5.1.  Exception Date-Times](https://datatracker.ietf.org/doc/html/rfc5545#section-3.8.5.1)
-    fn exdate<T: Into<DatePerhapsTime>>(&mut self, exdate: T) -> &mut Self {
-        self.append_multi_property(exdate.into().to_property("EXDATE"))
-    }
-
-    /// Set the ALARM
-    /// [3.6.6.  Alarm Component](https://datatracker.ietf.org/doc/html/rfc5545#section-3.6.6)
-    fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
-        let alarm: Alarm = alarm.into();
-        self.append_component(alarm)
-    }
-}
-
-/// Shared guts of [`EventLike::get_recurrence`] and
-/// [`CalendarEvent::get_recurrence`](crate::CalendarEvent::get_recurrence).
-///
-/// Builds an [`rrule::RRuleSet`] from `DTSTART`, `RRULE`, `RDATE`, and `EXDATE`.
-/// Pass `calendar_tz` to anchor DATE-only `DTSTART` values to a specific timezone.
-#[cfg(feature = "recurrence")]
-pub(crate) fn build_recurrence_set(
-    component: &(impl Component + ?Sized),
-    calendar_tz: Option<&str>,
-) -> Result<rrule::RRuleSet, RecurrenceError> {
-    use std::fmt::Write;
-
-    let mut b = String::new();
-
-    if let Some(dt_start_prop) = component.properties().get("DTSTART") {
-        let parsed = DatePerhapsTime::from_property(dt_start_prop);
-
-        // Write DTSTART, anchoring a DATE-only value to the calendar timezone when available.
-        if let Some(tzid) = dt_start_prop.params().get("TZID") {
-            writeln!(b, "DTSTART;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
-        } else if let (Some(DatePerhapsTime::Date(naive_date)), Some(tz_name)) =
-            (&parsed, calendar_tz)
-        {
-            writeln!(
-                b,
-                "DTSTART;TZID={}:{}T000000",
-                tz_name,
-                naive_date.format("%Y%m%d")
-            )
-            .unwrap();
-        } else {
-            writeln!(b, "DTSTART:{}", dt_start_prop.value()).unwrap();
-        }
-
-        // When there is no RRULE the rrule crate's iterator only yields explicit RDATEs.
-        // RFC 5545 §3.6.1 says DTSTART is the first instance, so we add it as an RDATE.
-        let has_rrule = component.property_value("RRULE").is_some();
-        if !has_rrule {
-            if let Some(tzid) = dt_start_prop.params().get("TZID") {
-                writeln!(b, "RDATE;TZID={}:{}", tzid.value(), dt_start_prop.value()).unwrap();
-            } else if let (Some(DatePerhapsTime::Date(naive_date)), Some(tz_name)) =
-                (&parsed, calendar_tz)
+macro_rules! event_component_methods {
+    ($component_type:ty, $end_property:literal) => {
+        impl $component_type {
+            /// Appends a `CATEGORIES` property. Each item is escaped.
+            pub fn categories<I, S>(&mut self, categories: I) -> &mut Self
+            where
+                I: IntoIterator<Item = S>,
+                S: AsRef<str>,
             {
-                writeln!(
-                    b,
-                    "RDATE;TZID={}:{}T000000",
-                    tz_name,
-                    naive_date.format("%Y%m%d")
+                self.append_multi_property(Property::new("CATEGORIES", join_text_list(categories)))
+            }
+
+            /// Gets all categories, across every `CATEGORIES` property.
+            pub fn get_categories(&self) -> Option<Vec<String>> {
+                get_text_list(self, "CATEGORIES")
+            }
+
+            /// Appends a `RESOURCES` property. Each item is escaped.
+            pub fn resources<I, S>(&mut self, resources: I) -> &mut Self
+            where
+                I: IntoIterator<Item = S>,
+                S: AsRef<str>,
+            {
+                self.append_multi_property(Property::new("RESOURCES", join_text_list(resources)))
+            }
+
+            /// Gets all resources, across every `RESOURCES` property.
+            pub fn get_resources(&self) -> Option<Vec<String>> {
+                get_text_list(self, "RESOURCES")
+            }
+
+            /// Sets `DTSTART`.
+            pub fn starts<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_property(date_time.into().to_property("DTSTART"))
+            }
+
+            /// Removes `DTSTART`.
+            pub fn remove_starts(&mut self) -> &mut Self {
+                self.remove_property("DTSTART")
+            }
+
+            /// Sets `DURATION`, replacing `DTEND` or `DUE`.
+            ///
+            /// The supplied span is not validated. RFC 5545 requires a positive
+            /// duration, and date-only starts require days or weeks.
+            pub fn lasts(&mut self, duration: jiff::Span) -> &mut Self {
+                self.remove_property($end_property)
+                    .append_property(duration)
+            }
+
+            /// Sets `RECURRENCE-ID`.
+            pub fn recurrence_id<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_property(date_time.into().to_property("RECURRENCE-ID"))
+            }
+
+            /// Removes `RECURRENCE-ID`.
+            pub fn remove_recurrence_id(&mut self) -> &mut Self {
+                self.remove_property("RECURRENCE-ID")
+            }
+
+            /// Sets `LOCATION` with a venue UID from the expired ical-venue draft.
+            pub fn venue(&mut self, location: &str, venue_uid: &str) -> &mut Self {
+                self.append_property(
+                    Property::new("LOCATION", location)
+                        .append_parameter(Parameter::new("VVENUE", venue_uid))
+                        .done(),
                 )
-                .unwrap();
-            } else {
-                writeln!(b, "RDATE:{}", dt_start_prop.value()).unwrap();
+            }
+
+            /// Sets `LOCATION`.
+            pub fn location(&mut self, location: &str) -> &mut Self {
+                self.add_property("LOCATION", location)
+            }
+
+            /// Removes `LOCATION`.
+            pub fn remove_location(&mut self) -> &mut Self {
+                self.remove_property("LOCATION")
+            }
+
+            /// Gets `LOCATION`.
+            pub fn get_location(&self) -> Option<&str> {
+                self.property_value("LOCATION")
+            }
+
+            /// Appends an `RDATE` property.
+            pub fn rdate<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_multi_property(date_time.into().to_property("RDATE"))
+            }
+
+            /// Appends an `EXDATE` property.
+            pub fn exdate<T: Into<DatePerhapsTime>>(&mut self, date_time: T) -> &mut Self {
+                self.append_multi_property(date_time.into().to_property("EXDATE"))
+            }
+
+            /// Appends an alarm.
+            pub fn alarm<A: Into<Alarm>>(&mut self, alarm: A) -> &mut Self {
+                self.append_component(alarm.into())
             }
         }
-    };
-
-    if let Some(rrule_str) = component.property_value("RRULE") {
-        writeln!(b, "RRULE:{rrule_str}").unwrap();
-    }
-
-    if let Some(rdates) = component.multi_properties().get("RDATE") {
-        for rdate in rdates.iter().filter_map(|p| p.to_line().ok()) {
-            writeln!(b, "{rdate}").unwrap();
-        }
-    }
-
-    if let Some(exdates) = component.multi_properties().get("EXDATE") {
-        for exdate in exdates.iter().filter_map(|p| p.to_line().ok()) {
-            writeln!(b, "{exdate}").unwrap();
-        }
-    }
-
-    b.parse::<rrule::RRuleSet>().map_err(RecurrenceError::Rule)
-}
-
-macro_rules! event_impl {
-    ($t:ty) => {
-        impl EventLike for $t {}
     };
 }
 
@@ -742,17 +578,17 @@ macro_rules! component_impl {
 }
 
 component_impl! { Event, String::from("VEVENT") }
-event_impl! { Event }
+event_component_methods! { Event, "DTEND" }
 
 component_impl! { Todo , String::from("VTODO")}
-event_impl! { Todo}
+event_component_methods! { Todo, "DUE" }
 
 component_impl! { Venue , String::from("VVENUE")}
 component_impl! { Alarm, String::from("VALARM") }
 
 #[cfg(test)]
 mod tests {
-    use chrono::TimeZone;
+    use jiff::{civil::date, tz::TimeZone};
 
     use super::*;
 
@@ -860,10 +696,7 @@ mod tests {
 
     #[test]
     fn get_date_times_naive() {
-        let naive_date_time = NaiveDate::from_ymd_opt(2001, 3, 13)
-            .unwrap()
-            .and_hms_opt(14, 15, 16)
-            .unwrap();
+        let naive_date_time = date(2001, 3, 13).at(14, 15, 16, 0);
         let event = Event::new()
             .starts(naive_date_time)
             .ends(naive_date_time)
@@ -874,7 +707,11 @@ mod tests {
 
     #[test]
     fn get_date_times_utc() {
-        let utc_date_time = Utc.with_ymd_and_hms(2001, 3, 13, 14, 15, 16).unwrap();
+        let utc_date_time = date(2001, 3, 13)
+            .at(14, 15, 16, 0)
+            .to_zoned_datetime(TimeZone::UTC)
+            .unwrap()
+            .timestamp();
         let event = Event::new()
             .timestamp(utc_date_time)
             .last_modified(utc_date_time)
@@ -891,10 +728,7 @@ mod tests {
 
     #[test]
     fn get_date_times_tzid() {
-        let date_time = NaiveDate::from_ymd_opt(2001, 3, 13)
-            .unwrap()
-            .and_hms_opt(14, 15, 16)
-            .unwrap();
+        let date_time = date(2001, 3, 13).at(14, 15, 16, 0);
         let date_time_tzid = CalendarDateTime::WithTimezone {
             date_time,
             tzid: "Pacific/Auckland".to_string(),
@@ -909,7 +743,7 @@ mod tests {
 
     #[test]
     fn get_dates_naive() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let event = Event::new().starts(naive_date).ends(naive_date).done();
         assert_eq!(event.get_start(), Some(naive_date.into()));
         assert_eq!(event.get_end(), Some(naive_date.into()));
@@ -917,7 +751,7 @@ mod tests {
 
     #[test]
     fn exdate_accepts_naive_date() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let event = Event::new().exdate(naive_date).done();
 
         let exdates = event.multi_properties().get("EXDATE").unwrap();
@@ -933,7 +767,7 @@ mod tests {
 
     #[test]
     fn rdate_accepts_naive_date() {
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
+        let naive_date = date(2001, 3, 13);
         let event = Event::new().rdate(naive_date).done();
 
         let rdates = event.multi_properties().get("RDATE").unwrap();
@@ -945,62 +779,5 @@ mod tests {
             "RDATE should carry VALUE=DATE parameter, got: {line}"
         );
         assert_eq!(rdates.first().unwrap().value(), "20010313");
-    }
-
-    #[test]
-    #[cfg(feature = "recurrence")]
-    fn get_recurrence() {
-        use crate::{Frequency, NWeekday, RRule, Weekday};
-
-        let naive_date = NaiveDate::from_ymd_opt(2001, 3, 13).unwrap();
-
-        let rrule = RRule::default()
-            .count(4)
-            .freq(Frequency::Weekly)
-            .by_weekday(vec![
-                NWeekday::Every(Weekday::Tue),
-                NWeekday::Every(Weekday::Wed),
-            ]);
-
-        let event = Event::new()
-            .starts(naive_date)
-            .ends(naive_date)
-            .recurrence(rrule)
-            .unwrap()
-            .done();
-
-        let output = event
-            .get_recurrence()
-            .expect("event should have a recurrence rule");
-
-        let output_rrules = output.get_rrule();
-
-        assert_eq!(output_rrules.len(), 1);
-        assert_eq!(output_rrules.first().unwrap().get_freq(), Frequency::Weekly);
-        assert_eq!(output_rrules.first().unwrap().get_interval(), 1);
-        assert_eq!(
-            output_rrules.first().unwrap().get_by_weekday(),
-            [NWeekday::Every(Weekday::Tue), NWeekday::Every(Weekday::Wed)]
-        );
-    }
-
-    #[test]
-    #[cfg(feature = "recurrence")]
-    fn no_empty_rdate_or_exdate_added() {
-        use crate::{Frequency, RRule};
-
-        // Create an event with an RRULE, but no RDATE or EXDATE
-        let naive_date = NaiveDate::from_ymd_opt(2026, 3, 30).unwrap();
-        let event = Event::new()
-            .starts(naive_date)
-            .recurrence(RRule::default().count(3).freq(Frequency::Daily))
-            .unwrap()
-            .done();
-
-        let serialized = event.to_string();
-
-        // Ensure no empty RDATE or EXDATE lines are present
-        assert!(!serialized.contains("RDATE:"));
-        assert!(!serialized.contains("EXDATE:"));
     }
 }

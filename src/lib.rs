@@ -44,15 +44,19 @@ mod components;
 #[cfg(feature = "parser")]
 pub mod parser;
 mod properties;
-#[cfg(feature = "recurrence")]
-mod recurrence;
+
 mod text;
 mod value_types;
 
+pub use jiff::{
+    self, Span, Timestamp, ToSpan, ZonedDateTime,
+    civil::{Date, DateTime, Time, date},
+};
+
 pub use crate::{
-    calendar::{Calendar, CalendarComponent, IntoTimezoneId},
+    calendar::{Calendar, CalendarComponent, CalendarEvent, CalendarTodo, IntoTimezoneId},
     components::{
-        Component, Event, EventLike, Todo, Venue,
+        Component, Event, Todo, Venue,
         alarm::{Alarm, Related, Trigger},
         date_time::{CalendarDateTime, DatePerhapsTime},
     },
@@ -62,14 +66,5 @@ pub use crate::{
     },
     value_types::ValueType,
 };
-
-#[cfg(feature = "recurrence")]
-pub use recurrence::*;
-
-#[cfg(feature = "recurrence")]
-pub use crate::calendar::{CalendarEvent, CalendarTodo};
-
-#[cfg(feature = "chrono-tz")]
-pub use crate::components::date_time::ymd_hm_tzid;
 
 // TODO Calendar TimeZone VTIMEZONE STANDARD DAYLIGHT (see thunderbird exports)
